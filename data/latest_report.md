@@ -1,62 +1,62 @@
 # AI Client Finder — Lead Report
 
-Generated: 2026-10-01 14:35 UTC
+Generated: 2026-10-01 15:14 UTC
 Leads found: 5
 
 > Website status is based on retrieved public sources. A missing website in those sources is not absolute proof that the business has no website.
 
-## 1. Garden Oaks Dental
-- Category: Dentist
-- Location: Houston, TX 77027
-- Phone: (713) 880-4300
+## 1. Eye Co.
+- Category: Optometrist
+- Location: Columbus, OH
+- Phone: 234-643-9326
 - Public email: Not found
-- Official website: Not found in retrieved sources
-- Website status: not_found_in_sources
-- Score: 85/100
-- Evidence: Result 1 lists the practice with phone number but no website.
-- Source: https://www.promptloop.com/directory/houston-dental
+- Official website: https://www.ohioeyeco.com/
+- Website status: reachable
+- Score: 40/100
+- Evidence: Local optometry practice with contact info and address.
+- Source: https://www.ohioeyeco.com/our-team.html
 
-## 2. Eldridge Dental
-- Category: Dentist
-- Location: Houston, TX 77041
-- Phone: (713) 983-0099
+## 2. Eyes on High
+- Category: Optometrist
+- Location: Columbus, OH
+- Phone: 614-263-2020
 - Public email: Not found
-- Official website: Not found in retrieved sources
-- Website status: not_found_in_sources
-- Score: 85/100
-- Evidence: Result 1 lists the practice with phone number but no website.
-- Source: https://www.promptloop.com/directory/houston-dental
+- Official website: https://www.eyesonhigh.com/
+- Website status: reachable
+- Score: 40/100
+- Evidence: Local optometry practice with address and phone.
+- Source: https://www.eyesonhigh.com
 
-## 3. Ventana Family Dental
-- Category: Dentist
-- Location: Katy, TX 77449
-- Phone: (281) 249-9788
+## 3. Eyecare About You
+- Category: Optometrist
+- Location: Columbus, OH
+- Phone: 614-837-3797
 - Public email: Not found
-- Official website: Not found in retrieved sources
-- Website status: not_found_in_sources
-- Score: 85/100
-- Evidence: Result 1 lists the practice with phone number but no website.
-- Source: https://www.promptloop.com/directory/houston-dental
+- Official website: https://eyecareaboutyou2020.com/
+- Website status: reachable
+- Score: 40/100
+- Evidence: Local optometry practice with multiple locations and contact numbers.
+- Source: https://eyecareaboutyou2020.com
 
-## 4. Galaxia Dental
-- Category: Dentist
-- Location: Houston, TX 77061
-- Phone: (713) 242-0044
+## 4. Columbus Ophthalmology Associates
+- Category: Ophthalmology
+- Location: Columbus, OH
+- Phone: 614-766-2006
 - Public email: Not found
-- Official website: Not found in retrieved sources
-- Website status: not_found_in_sources
-- Score: 85/100
-- Evidence: Result 1 lists the practice with phone number but no website.
-- Source: https://www.promptloop.com/directory/houston-dental
+- Official website: https://www.coavision.com/
+- Website status: reachable
+- Score: 40/100
+- Evidence: Local ophthalmology practice with multiple offices.
+- Source: https://www.coavision.com/our-locations/east-office
 
-## 5. Kingsland Dental Group
-- Category: Dentist
-- Location: Katy, TX 77450
-- Phone: (281) 646-8888
+## 5. Eye Care Professionals
+- Category: Optometrist
+- Location: Whitehall, OH
+- Phone: 614-866-9002
 - Public email: Not found
-- Official website: Not found in retrieved sources
-- Website status: not_found_in_sources
-- Score: 85/100
-- Evidence: Result 1 lists the practice with phone number but no website.
-- Source: https://www.promptloop.com/directory/houston-dental
+- Official website: https://www.eyecareprofessionalsoh.com/
+- Website status: reachable
+- Score: 40/100
+- Evidence: Local optometry practice in Whitehall, OH.
+- Source: https://www.eyecareprofessionalsoh.com/hours-location/eyecare-professionals-whitehall
 

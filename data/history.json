@@ -1,5 +1,5 @@
 {
-  "search_cursor": 2,
+  "search_cursor": 4,
   "businesses": {
     "dds associates houston tx": {
       "business_name": "DDS Associates",
@@ -90,6 +90,36 @@
       "location": "Phoenix, AZ",
       "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
       "source_url": "https://www.yelp.com/biz/suddenly-slimmer-med-spa-phoenix?start=120"
+    },
+    "eye co columbus oh": {
+      "business_name": "Eye Co.",
+      "location": "Columbus, OH",
+      "first_seen_utc": "2026-10-01T15:14:41.440887+00:00",
+      "source_url": "https://www.ohioeyeco.com/our-team.html"
+    },
+    "eyes on high columbus oh": {
+      "business_name": "Eyes on High",
+      "location": "Columbus, OH",
+      "first_seen_utc": "2026-10-01T15:14:41.440887+00:00",
+      "source_url": "https://www.eyesonhigh.com"
+    },
+    "eyecare about you columbus oh": {
+      "business_name": "Eyecare About You",
+      "location": "Columbus, OH",
+      "first_seen_utc": "2026-10-01T15:14:41.440887+00:00",
+      "source_url": "https://eyecareaboutyou2020.com"
+    },
+    "columbus ophthalmology associates columbus oh": {
+      "business_name": "Columbus Ophthalmology Associates",
+      "location": "Columbus, OH",
+      "first_seen_utc": "2026-10-01T15:14:41.440887+00:00",
+      "source_url": "https://www.coavision.com/our-locations/east-office"
+    },
+    "eye care professionals whitehall oh": {
+      "business_name": "Eye Care Professionals",
+      "location": "Whitehall, OH",
+      "first_seen_utc": "2026-10-01T15:14:41.440887+00:00",
+      "source_url": "https://www.eyecareprofessionalsoh.com/hours-location/eyecare-professionals-whitehall"
     }
   }
 }
