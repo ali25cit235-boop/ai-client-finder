@@ -1,5 +1,5 @@
 {
-  "search_cursor": 4,
+  "search_cursor": 6,
   "businesses": {
     "dds associates houston tx": {
       "business_name": "DDS Associates",
@@ -120,6 +120,54 @@
       "location": "Whitehall, OH",
       "first_seen_utc": "2026-10-01T15:14:41.440887+00:00",
       "source_url": "https://www.eyecareprofessionalsoh.com/hours-location/eyecare-professionals-whitehall"
+    },
+    "kirby l watkins dc 5117 e washington st indianapolis in 46219": {
+      "business_name": "Kirby L. Watkins, DC",
+      "location": "5117 E Washington St, Indianapolis, IN 46219",
+      "first_seen_utc": "2026-10-01T19:38:10.534572+00:00",
+      "source_url": "https://chiropractorinindianapolis.com"
+    },
+    "alpha health wellness llc 3266 n meridian st suite 508 indianapolis in 46208": {
+      "business_name": "Alpha Health & Wellness LLC",
+      "location": "3266 N Meridian St Suite 508, Indianapolis, IN 46208",
+      "first_seen_utc": "2026-10-01T19:38:10.534572+00:00",
+      "source_url": "https://chiropractorinindianapolis.com"
+    },
+    "indianapolis family chiro 6249 s east st f indianapolis in 46227": {
+      "business_name": "Indianapolis Family Chiro",
+      "location": "6249 S East St F, Indianapolis, IN 46227",
+      "first_seen_utc": "2026-10-01T19:38:10.534572+00:00",
+      "source_url": "https://chiropractorinindianapolis.com"
+    },
+    "circle city chiropractic 6612 e 75th st 110 indianapolis in 46250": {
+      "business_name": "Circle City Chiropractic",
+      "location": "6612 E 75th St #110, Indianapolis, IN 46250",
+      "first_seen_utc": "2026-10-01T19:38:10.534572+00:00",
+      "source_url": "https://chiropractorinindianapolis.com"
+    },
+    "dr kristin j huber dc 7275 shadeland ave indianapolis in": {
+      "business_name": "Dr. Kristin J. Huber, DC",
+      "location": "7275 Shadeland Ave, Indianapolis, IN",
+      "first_seen_utc": "2026-10-01T19:38:10.534572+00:00",
+      "source_url": "https://chiropractorinindianapolis.com"
+    },
+    "allen chiropractic health ctr indianapolis in 46227": {
+      "business_name": "Allen Chiropractic Health Ctr",
+      "location": "Indianapolis, IN 46227",
+      "first_seen_utc": "2026-10-01T19:38:10.534572+00:00",
+      "source_url": "https://www.thedirectory.com/indianapolis/chiropractors"
+    },
+    "apex therapy clinic indianapolis in": {
+      "business_name": "Apex Therapy Clinic",
+      "location": "Indianapolis, IN",
+      "first_seen_utc": "2026-10-01T19:38:10.534572+00:00",
+      "source_url": "https://www.thedirectory.com/indianapolis/chiropractors"
+    },
+    "eagle creek chiropractic indianapolis in": {
+      "business_name": "Eagle Creek Chiropractic",
+      "location": "Indianapolis, IN",
+      "first_seen_utc": "2026-10-01T19:38:10.534572+00:00",
+      "source_url": "https://www.eaglecreekchiropractic.com"
     }
   }
 }

@@ -1,62 +1,62 @@
 # AI Client Finder — Lead Report
 
-Generated: 2026-10-01 15:14 UTC
+Generated: 2026-10-01 19:38 UTC
 Leads found: 5
 
 > Website status is based on retrieved public sources. A missing website in those sources is not absolute proof that the business has no website.
 
-## 1. Eye Co.
-- Category: Optometrist
-- Location: Columbus, OH
-- Phone: 234-643-9326
+## 1. Kirby L. Watkins, DC
+- Category: Chiropractor
+- Location: 5117 E Washington St, Indianapolis, IN 46219
+- Phone: 317-357-8481
 - Public email: Not found
-- Official website: https://www.ohioeyeco.com/
-- Website status: reachable
-- Score: 40/100
-- Evidence: Local optometry practice with contact info and address.
-- Source: https://www.ohioeyeco.com/our-team.html
+- Official website: Not found in retrieved sources
+- Website status: not_found_in_sources
+- Score: 85/100
+- Evidence: Listed in Indianapolis chiropractor directory.
+- Source: https://chiropractorinindianapolis.com
 
-## 2. Eyes on High
-- Category: Optometrist
-- Location: Columbus, OH
-- Phone: 614-263-2020
+## 2. Alpha Health & Wellness LLC
+- Category: Chiropractor
+- Location: 3266 N Meridian St Suite 508, Indianapolis, IN 46208
+- Phone: 317-763-8711
 - Public email: Not found
-- Official website: https://www.eyesonhigh.com/
-- Website status: reachable
-- Score: 40/100
-- Evidence: Local optometry practice with address and phone.
-- Source: https://www.eyesonhigh.com
+- Official website: Not found in retrieved sources
+- Website status: not_found_in_sources
+- Score: 85/100
+- Evidence: Listed in Indianapolis chiropractor directory.
+- Source: https://chiropractorinindianapolis.com
 
-## 3. Eyecare About You
-- Category: Optometrist
-- Location: Columbus, OH
-- Phone: 614-837-3797
+## 3. Indianapolis Family Chiro
+- Category: Chiropractor
+- Location: 6249 S East St F, Indianapolis, IN 46227
+- Phone: 317-788-1114
 - Public email: Not found
-- Official website: https://eyecareaboutyou2020.com/
-- Website status: reachable
-- Score: 40/100
-- Evidence: Local optometry practice with multiple locations and contact numbers.
-- Source: https://eyecareaboutyou2020.com
+- Official website: Not found in retrieved sources
+- Website status: not_found_in_sources
+- Score: 85/100
+- Evidence: Listed in Indianapolis chiropractor directory.
+- Source: https://chiropractorinindianapolis.com
 
-## 4. Columbus Ophthalmology Associates
-- Category: Ophthalmology
-- Location: Columbus, OH
-- Phone: 614-766-2006
+## 4. Circle City Chiropractic
+- Category: Chiropractor
+- Location: 6612 E 75th St #110, Indianapolis, IN 46250
+- Phone: 317-288-5480
 - Public email: Not found
-- Official website: https://www.coavision.com/
-- Website status: reachable
-- Score: 40/100
-- Evidence: Local ophthalmology practice with multiple offices.
-- Source: https://www.coavision.com/our-locations/east-office
+- Official website: Not found in retrieved sources
+- Website status: not_found_in_sources
+- Score: 85/100
+- Evidence: Listed in Indianapolis chiropractor directory.
+- Source: https://chiropractorinindianapolis.com
 
-## 5. Eye Care Professionals
-- Category: Optometrist
-- Location: Whitehall, OH
-- Phone: 614-866-9002
+## 5. Allen Chiropractic Health Ctr
+- Category: Chiropractor
+- Location: Indianapolis, IN 46227
+- Phone: 317-885-1414
 - Public email: Not found
-- Official website: https://www.eyecareprofessionalsoh.com/
-- Website status: reachable
-- Score: 40/100
-- Evidence: Local optometry practice in Whitehall, OH.
-- Source: https://www.eyecareprofessionalsoh.com/hours-location/eyecare-professionals-whitehall
+- Official website: Not found in retrieved sources
+- Website status: not_found_in_sources
+- Score: 85/100
+- Evidence: Listed in Indianapolis chiropractors directory.
+- Source: https://www.thedirectory.com/indianapolis/chiropractors
 
