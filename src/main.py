@@ -1,8 +1,10 @@
 import json
+import re
+from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlparse
 
 from search import search_web
+from verify_website import verify_website
 from rank_leads import rank_leads
 from report import create_report
 
@@ -11,79 +13,97 @@ HISTORY_FILE = ROOT / "data" / "history.json"
 REPORT_FILE = ROOT / "data" / "latest_report.md"
 
 SEARCH_QUERIES = [
-    'dentist "contact" "United States"',
-    'med spa "contact" "United States"',
-    'optometrist "contact" "United States"',
-    'veterinary clinic "contact" "United States"',
-    'chiropractor "contact" "United States"',
+    "dentists in the United States that may not have an official website",
+    "med spas in the United States that may not have an official website",
+    "optometrists in the United States that may not have an official website",
+    "veterinary clinics in the United States that may not have an official website",
+    "chiropractors in the United States that may not have an official website",
 ]
+
+
+def make_key(name: str, location: str) -> str:
+    text = f"{name} {location}".lower().strip()
+    return re.sub(r"[^a-z0-9]+", " ", text).strip()
 
 
 def load_history() -> dict:
     if not HISTORY_FILE.exists():
         return {"businesses": {}}
     try:
-        return json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        raise RuntimeError(
-            "history.json could not be read; refusing to overwrite it"
-        )
+        data = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or not isinstance(
+            data.get("businesses", {}), dict
+        ):
+            raise ValueError("Unexpected history format")
+        data.setdefault("businesses", {})
+        return data
+    except (json.JSONDecodeError, OSError, ValueError) as exc:
+        raise RuntimeError("Cannot read history.json safely") from exc
 
 
-def save_history(history: dict) -> None:
-    HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    HISTORY_FILE.write_text(
-        json.dumps(history, indent=2), encoding="utf-8"
-    )
-
-
-def normalize_domain(url: str) -> str:
-    if not url:
-        return ""
-    host = (
-        urlparse(url if "://" in url else "https://" + url).hostname or ""
-    )
-    return host.lower().removeprefix("www.")
+def save_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def main() -> None:
     history = load_history()
-    seen = history.setdefault("businesses", {})
-    candidates = []
+    seen = history["businesses"]
+    new_leads = {}
 
     for query in SEARCH_QUERIES:
-        for result in search_web(query, count=10):
-            url = result.get("url", "")
-            domain = normalize_domain(url)
-            if not domain or domain in seen:
+        results = search_web(query, count=10)
+
+        for result in results:
+            name = str(result.get("business_name") or "").strip()
+            location = str(
+                result.get("location") or "United States"
+            ).strip()
+            if not name:
                 continue
 
-            # Search results are candidates, not proof of no website.
-            candidates.append({
-                "business_name": result.get("title", "").strip(),
-                "category": query.split()[0].strip('"'),
-                "location": "United States",
-                "website": url,
-                "website_status": "candidate_page_needs_review",
-                "source_url": url,
-                "description": result.get("description", ""),
-                "domain": domain,
-            })
+            key = make_key(name, location)
+            if not key or key in seen or key in new_leads:
+                continue
 
-    ranked = rank_leads(candidates)
+            website = result.get("official_website") or ""
+            website = website.strip() if isinstance(website, str) else ""
+
+            if website:
+                check = verify_website(website)
+                website_status = check["status"]
+                website = check.get("final_url") or website
+            else:
+                website_status = "not_found_in_search_needs_review"
+
+            new_leads[key] = {
+                "business_name": name,
+                "category": result.get("category") or "Unknown",
+                "location": location,
+                "phone": result.get("phone") or "",
+                "email": result.get("email") or "",
+                "website": website,
+                "website_status": website_status,
+                "source_url": result.get("source_url") or "",
+                "description": result.get("description") or "",
+            }
+
+    ranked = rank_leads(list(new_leads.values()))
     top_five = ranked[:5]
+    now = datetime.now(timezone.utc).isoformat()
 
-    for lead in top_five:
-        key = lead.get("domain") or lead.get("business_name", "").lower()
+    # Record every new candidate, not only the top five.
+    for key, lead in new_leads.items():
         seen[key] = {
-            "business_name": lead.get("business_name", ""),
-            "first_seen": "",
+            "business_name": lead["business_name"],
+            "location": lead["location"],
+            "first_seen_utc": now,
         }
 
     report = create_report(top_five)
     REPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
     REPORT_FILE.write_text(report, encoding="utf-8")
-    save_history(history)
+    save_json(HISTORY_FILE, history)
     print(report)
 
 
