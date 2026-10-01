@@ -1,4 +1,95 @@
 {
-  "search_cursor": 0,
-  "businesses": {}
+  "search_cursor": 2,
+  "businesses": {
+    "dds associates houston tx": {
+      "business_name": "DDS Associates",
+      "location": "Houston, TX",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://ddsassociates.com"
+    },
+    "lara regis dds houston tx 77070": {
+      "business_name": "Lara Regis DDS",
+      "location": "Houston, TX 77070",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "http://regis.dental"
+    },
+    "texas dental center houston tx": {
+      "business_name": "Texas Dental Center",
+      "location": "Houston, TX",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://texasdentalcenter.com"
+    },
+    "all about me med spa phoenix az": {
+      "business_name": "All About Me Med Spa",
+      "location": "Phoenix, AZ",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://allaboutmeaz.com"
+    },
+    "dr adrian reyes endodontics houston tx": {
+      "business_name": "Dr. Adrian Reyes Endodontics",
+      "location": "Houston, TX",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://www.myhoustonian.com/business-directory-home/business-directory.aspx"
+    },
+    "bruce matson dds family cosmetic dentistry houston tx": {
+      "business_name": "Bruce Matson DDS Family & Cosmetic Dentistry",
+      "location": "Houston, TX",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://www.myhoustonian.com/business-directory-home/business-directory.aspx"
+    },
+    "garden oaks dental houston tx 77027": {
+      "business_name": "Garden Oaks Dental",
+      "location": "Houston, TX 77027",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://www.promptloop.com/directory/houston-dental"
+    },
+    "eldridge dental houston tx 77041": {
+      "business_name": "Eldridge Dental",
+      "location": "Houston, TX 77041",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://www.promptloop.com/directory/houston-dental"
+    },
+    "ventana family dental katy tx 77449": {
+      "business_name": "Ventana Family Dental",
+      "location": "Katy, TX 77449",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://www.promptloop.com/directory/houston-dental"
+    },
+    "sonrisa dental houston tx 77072": {
+      "business_name": "Sonrisa Dental",
+      "location": "Houston, TX 77072",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://www.promptloop.com/directory/houston-dental"
+    },
+    "galaxia dental houston tx 77061": {
+      "business_name": "Galaxia Dental",
+      "location": "Houston, TX 77061",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://www.promptloop.com/directory/houston-dental"
+    },
+    "kingsland dental group katy tx 77450": {
+      "business_name": "Kingsland Dental Group",
+      "location": "Katy, TX 77450",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://www.promptloop.com/directory/houston-dental"
+    },
+    "ideal dental clear lake houston tx 77059": {
+      "business_name": "Ideal Dental Clear Lake",
+      "location": "Houston, TX 77059",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://www.promptloop.com/directory/houston-dental"
+    },
+    "hollywood med spa phoenix az": {
+      "business_name": "Hollywood Med Spa",
+      "location": "Phoenix, AZ",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://www.yelp.com/biz/hollywood-med-spa-phoenix-2"
+    },
+    "suddenly slimmer med spa phoenix az": {
+      "business_name": "Suddenly Slimmer Med Spa",
+      "location": "Phoenix, AZ",
+      "first_seen_utc": "2026-10-01T14:35:46.730519+00:00",
+      "source_url": "https://www.yelp.com/biz/suddenly-slimmer-med-spa-phoenix?start=120"
+    }
+  }
 }

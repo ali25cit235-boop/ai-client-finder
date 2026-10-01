@@ -1,54 +1,62 @@
 # AI Client Finder — Lead Report
-Generated: 2026-10-01 14:13 UTC
+
+Generated: 2026-10-01 14:35 UTC
 Leads found: 5
 
-## 1. Independent Dentistry | AIDA Dental Group
-- Category: Needs review
-- Location: United States
-- Phone: 
-- Public email: 
-- Website URL: Not found — needs verification
-- Website check: unknown_needs_manual_verification
-- Score: 70/100
-- Source: https://aidagroup.org
+> Website status is based on retrieved public sources. A missing website in those sources is not absolute proof that the business has no website.
 
-## 2. How to Form a Dental Business in the USA
-- Category: Needs review
-- Location: United States
-- Phone: 
-- Public email: 
-- Website URL: Not found — needs verification
-- Website check: unknown_needs_manual_verification
-- Score: 70/100
-- Source: https://www.vjmglobal.com/feeds/blog/dental-business-formation-usa
+## 1. Garden Oaks Dental
+- Category: Dentist
+- Location: Houston, TX 77027
+- Phone: (713) 880-4300
+- Public email: Not found
+- Official website: Not found in retrieved sources
+- Website status: not_found_in_sources
+- Score: 85/100
+- Evidence: Result 1 lists the practice with phone number but no website.
+- Source: https://www.promptloop.com/directory/houston-dental
 
-## 3. Model Legislation: The Independent Dental Practice Act - American Economic Liberties Project
-- Category: Needs review
-- Location: United States
-- Phone: 
-- Public email: 
-- Website URL: Not found — needs verification
-- Website check: unknown_needs_manual_verification
-- Score: 70/100
-- Source: https://www.economicliberties.us/our-work/model-legislation-the-independent-dental-practice-act
+## 2. Eldridge Dental
+- Category: Dentist
+- Location: Houston, TX 77041
+- Phone: (713) 983-0099
+- Public email: Not found
+- Official website: Not found in retrieved sources
+- Website status: not_found_in_sources
+- Score: 85/100
+- Evidence: Result 1 lists the practice with phone number but no website.
+- Source: https://www.promptloop.com/directory/houston-dental
 
-## 4. Find a dentist | Independence Blue Cross (IBX)
-- Category: Needs review
-- Location: United States
-- Phone: 
-- Public email: 
-- Website URL: Not found — needs verification
-- Website check: unknown_needs_manual_verification
-- Score: 70/100
-- Source: https://www.ibx.com/get-care/find-doctors-and-health-care-providers/find-a-dentist.html
+## 3. Ventana Family Dental
+- Category: Dentist
+- Location: Katy, TX 77449
+- Phone: (281) 249-9788
+- Public email: Not found
+- Official website: Not found in retrieved sources
+- Website status: not_found_in_sources
+- Score: 85/100
+- Evidence: Result 1 lists the practice with phone number but no website.
+- Source: https://www.promptloop.com/directory/houston-dental
 
-## 5. What States Can a Non-Dentist Own a Dental Practice In | Pearl AI
-- Category: Needs review
-- Location: United States
-- Phone: 
-- Public email: 
-- Website URL: Not found — needs verification
-- Website check: unknown_needs_manual_verification
-- Score: 70/100
-- Source: https://hellopearl.com/blog/what-states-can-a-non-dentist-own-a-dental-practice-in
+## 4. Galaxia Dental
+- Category: Dentist
+- Location: Houston, TX 77061
+- Phone: (713) 242-0044
+- Public email: Not found
+- Official website: Not found in retrieved sources
+- Website status: not_found_in_sources
+- Score: 85/100
+- Evidence: Result 1 lists the practice with phone number but no website.
+- Source: https://www.promptloop.com/directory/houston-dental
+
+## 5. Kingsland Dental Group
+- Category: Dentist
+- Location: Katy, TX 77450
+- Phone: (281) 646-8888
+- Public email: Not found
+- Official website: Not found in retrieved sources
+- Website status: not_found_in_sources
+- Score: 85/100
+- Evidence: Result 1 lists the practice with phone number but no website.
+- Source: https://www.promptloop.com/directory/houston-dental
 
