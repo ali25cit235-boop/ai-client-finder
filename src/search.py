@@ -1,12 +1,22 @@
-from google import genai
-from google.genai import types
+
 import os
 import json
+import time
+
+from google import genai
+from google.genai import types
+from google.genai import errors
+
+
+# Models are tried in this order.
+MODELS = [
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.8-flash",
+]
 
 
 def search_web(query: str, count: int = 10) -> list[dict]:
-    """Search the web using Gemini + Google Search grounding."""
-
     api_key = os.environ.get("GEMINI_API_KEY")
 
     if not api_key:
@@ -15,56 +25,83 @@ def search_web(query: str, count: int = 10) -> list[dict]:
     client = genai.Client(api_key=api_key)
 
     prompt = f"""
-Find {count} real local businesses in the United States matching this query:
-
+Search Google for real businesses in the United States matching:
 {query}
 
-Focus on businesses that may NOT have their own official website.
+Find up to {count} businesses that may not have an official website.
 
-For each business, return:
-- business_name
-- category
-- location
-- phone if publicly available
-- email if publicly available
-- official_website if you can verify one
-- source_url
+Return a JSON array. Each object should contain:
+business_name, category, location, phone, email,
+official_website, source_url, description.
 
-Important:
-- Do not invent information.
-- If an official website cannot be verified, set official_website to null.
-- Prefer real businesses with publicly available information.
-- Return ONLY a JSON array.
+Do not invent details.
+Use null when information cannot be verified.
+A missing website in search results is not proof that no website exists.
+Return only the JSON array.
 """
 
-    response = client.models.generate_content(
-        model="gemini-3.5-flash-lite",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            tools=[
-                types.Tool(
-                    google_search=types.GoogleSearch()
+    last_error = None
+
+    for model in MODELS:
+        for attempt in range(1, 4):
+            try:
+                print(
+                    f"Trying model {model}, "
+                    f"attempt {attempt}/3"
                 )
-            ]
-        ),
+
+                response = client.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        tools=[
+                            types.Tool(
+                                google_search=types.GoogleSearch()
+                            )
+                        ]
+                    ),
+                )
+
+                text = (response.text or "").strip()
+
+                if text.startswith("```"):
+                    text = text.replace("```json", "", 1)
+                    text = text.replace("```", "").strip()
+
+                results = json.loads(text)
+
+                if not isinstance(results, list):
+                    raise ValueError("Gemini did not return a JSON array")
+
+                return results[:count]
+
+            except errors.APIError as exc:
+                last_error = exc
+                status = getattr(exc, "code", None)
+
+                print(f"API error: {exc}")
+
+                # Retry temporary failures only.
+                if status not in (408, 429, 500, 502, 503, 504):
+                    print(
+                        f"Non-retryable error for {model}; "
+                        "trying next model."
+                    )
+                    break
+
+                if attempt < 3:
+                    time.sleep(2 ** attempt)
+
+            except (json.JSONDecodeError, ValueError) as exc:
+                last_error = exc
+                print(f"Invalid response: {exc}")
+                break
+
+            except Exception as exc:
+                last_error = exc
+                print(f"Unexpected error: {exc}")
+                break
+
+    raise RuntimeError(
+        f"All configured model attempts failed. Last error: {last_error}"
     )
-
-    text = response.text or "[]"
-
-    # Remove possible Markdown code fences
-    text = text.strip()
-
-    if text.startswith("```"):
-        text = text.replace("```json", "", 1)
-        text = text.replace("```", "")
-        text = text.strip()
-
-    try:
-        results = json.loads(text)
-    except json.JSONDecodeError:
-        return []
-
-    if not isinstance(results, list):
-        return []
-
-    return results[:count]
