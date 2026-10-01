@@ -15,30 +15,14 @@ LEAD_SCHEMA = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "business_name": {
-                        "type": "string"
-                    },
-                    "category": {
-                        "type": "string"
-                    },
-                    "location": {
-                        "type": "string"
-                    },
-                    "phone": {
-                        "type": ["string", "null"]
-                    },
-                    "email": {
-                        "type": ["string", "null"]
-                    },
-                    "official_website": {
-                        "type": ["string", "null"]
-                    },
-                    "source_url": {
-                        "type": "string"
-                    },
-                    "evidence": {
-                        "type": "string"
-                    }
+                    "business_name": {"type": "string"},
+                    "category": {"type": "string"},
+                    "location": {"type": "string"},
+                    "phone": {"type": ["string", "null"]},
+                    "email": {"type": ["string", "null"]},
+                    "official_website": {"type": ["string", "null"]},
+                    "source_url": {"type": "string"},
+                    "evidence": {"type": "string"}
                 },
                 "required": [
                     "business_name",
@@ -60,8 +44,6 @@ LEAD_SCHEMA = {
 
 
 def clean_content(content) -> str:
-    """Convert different OpenRouter content formats into plain text."""
-
     if isinstance(content, str):
         return content.strip()
 
@@ -71,8 +53,10 @@ def clean_content(content) -> str:
         for item in content:
             if isinstance(item, str):
                 parts.append(item)
+
             elif isinstance(item, dict):
                 text = item.get("text")
+
                 if isinstance(text, str):
                     parts.append(text)
 
@@ -81,15 +65,69 @@ def clean_content(content) -> str:
     return ""
 
 
-def parse_json_response(text: str) -> dict:
-    """Parse JSON even if a model adds markdown fences."""
+def recover_complete_leads(text: str) -> list[dict]:
+    """
+    Recover complete lead objects if the AI response
+    was cut off before the final JSON braces.
+    """
 
     text = (text or "").strip()
 
-    if not text:
-        raise ValueError("AI returned an empty response")
+    marker = '"leads"'
 
-    # Remove markdown code fences
+    marker_pos = text.find(marker)
+
+    if marker_pos == -1:
+        return []
+
+    array_start = text.find("[", marker_pos)
+
+    if array_start == -1:
+        return []
+
+    decoder = json.JSONDecoder()
+
+    position = array_start + 1
+    recovered = []
+
+    while position < len(text):
+
+        # Skip spaces/newlines/commas
+        while position < len(text) and text[position] in " \t\r\n,":
+            position += 1
+
+        if position >= len(text):
+            break
+
+        if text[position] == "]":
+            break
+
+        try:
+            obj, consumed = decoder.raw_decode(
+                text[position:]
+            )
+
+            if isinstance(obj, dict):
+                recovered.append(obj)
+
+            position += consumed
+
+        except json.JSONDecodeError:
+            # Current object is incomplete.
+            break
+
+    return recovered
+
+
+def parse_json_response(text: str) -> dict:
+    text = (text or "").strip()
+
+    if not text:
+        raise ValueError(
+            "AI returned an empty response"
+        )
+
+    # Remove markdown fences if present.
     if text.startswith("```"):
         lines = text.splitlines()
 
@@ -101,7 +139,7 @@ def parse_json_response(text: str) -> dict:
 
         text = "\n".join(lines).strip()
 
-    # First try the complete response
+    # Normal JSON parsing first.
     try:
         parsed = json.loads(text)
 
@@ -111,34 +149,29 @@ def parse_json_response(text: str) -> dict:
     except json.JSONDecodeError:
         pass
 
-    # Try extracting an object from surrounding text
-    start = text.find("{")
-    end = text.rfind("}")
+    # Try recovering complete lead objects
+    # from an incomplete JSON response.
+    recovered = recover_complete_leads(text)
 
-    if start != -1 and end > start:
-        candidate = text[start:end + 1]
-
-        try:
-            parsed = json.loads(candidate)
-
-            if isinstance(parsed, dict):
-                return parsed
-
-        except json.JSONDecodeError:
-            pass
+    if recovered:
+        return {
+            "leads": recovered
+        }
 
     raise ValueError(
-        "AI did not return valid JSON. "
-        f"Response preview: {text[:500]}"
+        "AI returned incomplete or invalid JSON. "
+        f"Response preview: {text[:800]}"
     )
 
 
 def extract_leads(
     search_results: list[dict],
-    max_leads: int = 15
+    max_leads: int = 8
 ) -> list[dict]:
 
-    api_key = os.environ.get("OPENROUTER_API_KEY")
+    api_key = os.environ.get(
+        "OPENROUTER_API_KEY"
+    )
 
     if not api_key:
         raise RuntimeError(
@@ -153,52 +186,58 @@ def extract_leads(
     ):
         prepared_results.append({
             "result_number": index,
-            "title": result.get("title", ""),
-            "url": result.get("url", ""),
+            "title": result.get(
+                "title",
+                ""
+            ),
+            "url": result.get(
+                "url",
+                ""
+            ),
             "content": result.get(
                 "content",
                 ""
-            )[:2000],
+            )[:1200]
         })
 
     prompt = f"""
-You are a business lead extraction assistant.
+You are a business lead filtering assistant.
 
-Analyze the web search results below.
+Analyze these web search results.
 
-Return ONLY REAL LOCAL BUSINESSES in the United States
-that could potentially need a website.
+Return ONLY REAL LOCAL BUSINESSES
+located in the United States.
 
 Reject:
 - articles
 - blog posts
-- news pages
+- news
 - legislation
 - insurance companies
-- large national corporations
-- directories as businesses
+- directories
+- generic information pages
 - "how to start a business" pages
-- informational pages
 - job listings
-- generic search pages
+- large national corporations
 
-IMPORTANT:
+A directory page can be used as a SOURCE,
+but it is NOT the business's official website.
 
-A directory page such as Yelp, Facebook, YellowPages,
-Healthgrades, etc. can be used as a SOURCE for a business.
+Do not invent information.
 
-It must NOT be treated as the business's official website.
+If an official website cannot be verified,
+use null for official_website.
 
-Do not invent business information.
+Return a maximum of {max_leads} businesses.
 
-If you cannot verify an official website,
-set official_website to null.
-
-Return at most {max_leads} businesses.
+Return ONLY the requested JSON structure.
 
 SEARCH RESULTS:
 
-{json.dumps(prepared_results, indent=2)}
+{json.dumps(
+    prepared_results,
+    indent=2
+)}
 """
 
     payload = {
@@ -213,7 +252,7 @@ SEARCH RESULTS:
 
         "temperature": 0,
 
-        "max_tokens": 6000,
+        "max_tokens": 3000,
 
         "provider": {
             "require_parameters": True
@@ -231,16 +270,13 @@ SEARCH RESULTS:
 
     response = requests.post(
         OPENROUTER_URL,
-
         headers={
             "Authorization": (
                 f"Bearer {api_key}"
             ),
             "Content-Type": "application/json"
         },
-
         json=payload,
-
         timeout=90
     )
 
@@ -253,7 +289,10 @@ SEARCH RESULTS:
 
     data = response.json()
 
-    choices = data.get("choices", [])
+    choices = data.get(
+        "choices",
+        []
+    )
 
     if not choices:
         raise RuntimeError(
@@ -265,19 +304,20 @@ SEARCH RESULTS:
         {}
     )
 
-    content = clean_content(
-        message.get("content")
+    refusal = message.get(
+        "refusal"
     )
-
-    # Some responses may expose parsed/refusal information
-    # differently, so handle refusal clearly.
-    refusal = message.get("refusal")
 
     if refusal:
         raise RuntimeError(
-            f"OpenRouter model refused the request: "
-            f"{refusal}"
+            f"AI refused the request: {refusal}"
         )
+
+    content = clean_content(
+        message.get(
+            "content"
+        )
+    )
 
     parsed = parse_json_response(
         content
@@ -288,9 +328,10 @@ SEARCH RESULTS:
         []
     )
 
-    if not isinstance(leads, list):
-        raise ValueError(
-            "AI JSON does not contain a valid leads array"
-        )
+    if not isinstance(
+        leads,
+        list
+    ):
+        return []
 
     return leads[:max_leads]
