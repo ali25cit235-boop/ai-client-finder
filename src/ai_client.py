@@ -1,15 +1,50 @@
 import json
 import os
+import time
 import requests
 
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Fixed free model.
-MODEL = "qwen/qwen3.8-27b:free"
+# Free models.
+# The agent will try each model up to 3 times.
+MODELS = [
+    "nvidia/nemotron-3-ultra:free",
+    "inclusionai/ling-3.0-flash-fin:free",
+    "qwen/qwen3.8-27b:free",
+]
+
+
+def clean_text(value):
+    """Convert different response formats into plain text."""
+
+    if isinstance(value, str):
+        return value.strip()
+
+    if isinstance(value, list):
+        parts = []
+
+        for item in value:
+            if isinstance(item, str):
+                parts.append(item)
+
+            elif isinstance(item, dict):
+                text = item.get("text")
+
+                if isinstance(text, str):
+                    parts.append(text)
+
+        return "\n".join(parts).strip()
+
+    return ""
 
 
 def extract_json(text: str) -> dict:
+    """
+    Parse JSON returned by the model.
+    Handles markdown code fences and extra text.
+    """
+
     text = (text or "").strip()
 
     if not text:
@@ -17,16 +52,29 @@ def extract_json(text: str) -> dict:
             "AI returned an empty response"
         )
 
-    if "```" in text:
-        text = text.replace("```json", "")
-        text = text.replace("```", "")
-        text = text.strip()
+    # Remove markdown fences.
+    if text.startswith("```"):
+        lines = text.splitlines()
 
+        if lines:
+            lines = lines[1:]
+
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+
+        text = "\n".join(lines).strip()
+
+    # First try complete JSON.
     try:
-        return json.loads(text)
+        result = json.loads(text)
+
+        if isinstance(result, dict):
+            return result
+
     except json.JSONDecodeError:
         pass
 
+    # Try extracting JSON object from surrounding text.
     start = text.find("{")
     end = text.rfind("}")
 
@@ -34,29 +82,24 @@ def extract_json(text: str) -> dict:
         candidate = text[start:end + 1]
 
         try:
-            return json.loads(candidate)
+            result = json.loads(candidate)
+
+            if isinstance(result, dict):
+                return result
+
         except json.JSONDecodeError:
             pass
 
     raise ValueError(
         "AI returned invalid JSON. "
-        f"Preview: {text[:500]}"
+        f"Response preview: {text[:700]}"
     )
 
 
-def extract_leads(
+def build_prompt(
     search_results: list[dict],
-    max_leads: int = 5
-) -> list[dict]:
-
-    api_key = os.environ.get(
-        "OPENROUTER_API_KEY"
-    )
-
-    if not api_key:
-        raise RuntimeError(
-            "OPENROUTER_API_KEY is not configured"
-        )
+    max_leads: int
+) -> str:
 
     prepared_results = []
 
@@ -80,54 +123,45 @@ def extract_leads(
             )[:1000]
         })
 
-    prompt = f"""
-You are a business lead filtering assistant.
+    return f"""
+You are a local-business lead extraction assistant.
 
 Analyze the web search results below.
 
-Return ONLY REAL LOCAL BUSINESSES
-located in the United States.
+Return ONLY REAL LOCAL BUSINESSES in the United States.
 
-Reject:
+We need up to {max_leads} businesses that could potentially
+need a website.
+
+REJECT these:
 - articles
 - blog posts
 - news
-- laws
+- legislation
 - insurance companies
 - directories as businesses
 - job listings
 - generic information pages
+- "how to start a business" pages
 - national corporations
-- informational websites
+- government pages
+- organizations that are not local businesses
 
 A directory page can be used as a SOURCE,
-but it is NOT the business's official website.
+but the directory itself is NOT the business.
 
-Do not invent information.
+IMPORTANT:
+- Never invent information.
+- Use null when a value is unavailable.
+- Only use an official_website when the result clearly indicates
+  it belongs to that business.
+- A missing website in search results is NOT absolute proof
+  that the business has no website.
+- Return ONLY JSON.
+- Do not use markdown.
+- Do not add explanations outside JSON.
 
-We need a maximum of {max_leads} businesses.
-
-For every business return:
-
-business_name
-category
-location
-phone
-email
-official_website
-source_url
-evidence
-
-Use null when a field is unavailable.
-
-If an official website cannot be verified,
-official_website must be null.
-
-Return ONLY valid JSON.
-Do NOT use markdown.
-Do NOT add explanations.
-
-Use exactly:
+Use exactly this structure:
 
 {{
   "leads": [
@@ -139,7 +173,7 @@ Use exactly:
       "email": null,
       "official_website": null,
       "source_url": "https://source.com/page",
-      "evidence": "Local business identified in source."
+      "evidence": "Local dental business identified in the source."
     }}
   ]
 }}
@@ -152,8 +186,23 @@ SEARCH RESULTS:
 )}
 """
 
+
+def call_model(
+    model: str,
+    prompt: str
+) -> list[dict]:
+
+    api_key = os.environ.get(
+        "OPENROUTER_API_KEY"
+    )
+
+    if not api_key:
+        raise RuntimeError(
+            "OPENROUTER_API_KEY is not configured"
+        )
+
     payload = {
-        "model": MODEL,
+        "model": model,
 
         "messages": [
             {
@@ -164,19 +213,7 @@ SEARCH RESULTS:
 
         "temperature": 0,
 
-        # Keep the response comfortably sized.
-        "max_tokens": 4000,
-
-        # Important: prevent reasoning from
-        # consuming the whole completion budget.
-        "reasoning": {
-            "enabled": False
-        },
-
-        # Ask for JSON directly.
-        "response_format": {
-            "type": "json_object"
-        }
+        "max_tokens": 2500
     }
 
     response = requests.post(
@@ -195,10 +232,25 @@ SEARCH RESULTS:
         timeout=90
     )
 
+    # Temporary/rate-limit errors should be
+    # handled by the caller and retried.
+    if response.status_code in (
+        408,
+        429,
+        500,
+        502,
+        503,
+        504
+    ):
+        raise RuntimeError(
+            f"RETRYABLE_HTTP_{response.status_code}: "
+            f"{response.text[:800]}"
+        )
+
+    # Permanent API errors.
     if response.status_code >= 400:
         raise RuntimeError(
-            f"OpenRouter error "
-            f"{response.status_code}: "
+            f"PERMANENT_HTTP_{response.status_code}: "
             f"{response.text[:1000]}"
         )
 
@@ -214,35 +266,33 @@ SEARCH RESULTS:
             "OpenRouter returned no choices"
         )
 
-    message = choices[0].get(
+    choice = choices[0]
+
+    finish_reason = choice.get(
+        "finish_reason"
+    )
+
+    message = choice.get(
         "message",
         {}
     )
 
-    content = message.get(
-        "content"
+    content = clean_text(
+        message.get("content")
     )
 
-    if isinstance(content, list):
-        parts = []
-
-        for item in content:
-            if isinstance(item, str):
-                parts.append(item)
-
-            elif isinstance(item, dict):
-                item_text = item.get("text")
-
-                if item_text:
-                    parts.append(item_text)
-
-        content = "\n".join(parts)
-
+    # Empty output or truncated output:
+    # try the same model again.
     if not content:
         raise RuntimeError(
-            "OpenRouter returned empty content. "
-            f"Finish reason: "
-            f"{choices[0].get('finish_reason')}"
+            "EMPTY_RESPONSE: "
+            f"finish_reason={finish_reason}"
+        )
+
+    if finish_reason == "length":
+        raise RuntimeError(
+            "OUTPUT_TRUNCATED: "
+            "model reached its output limit"
         )
 
     parsed = extract_json(
@@ -259,8 +309,95 @@ SEARCH RESULTS:
         list
     ):
         raise ValueError(
-            "AI response does not contain "
-            "a valid leads array"
+            "AI response does not contain a valid leads array"
         )
 
-    return leads[:max_leads]
+    return leads
+
+
+def extract_leads(
+    search_results: list[dict],
+    max_leads: int = 5
+) -> list[dict]:
+
+    if not search_results:
+        return []
+
+    prompt = build_prompt(
+        search_results,
+        max_leads
+    )
+
+    last_error = None
+
+    for model in MODELS:
+
+        print("")
+        print(
+            f"=== Trying model: {model} ==="
+        )
+
+        for attempt in range(
+            1,
+            4
+        ):
+
+            print(
+                f"Attempt {attempt}/3"
+            )
+
+            try:
+                leads = call_model(
+                    model,
+                    prompt
+                )
+
+                print(
+                    f"SUCCESS: {model}"
+                )
+
+                return leads[:max_leads]
+
+            except Exception as exc:
+
+                last_error = exc
+
+                print(
+                    f"FAILED: {model} "
+                    f"attempt {attempt}/3"
+                )
+
+                print(
+                    f"Reason: {exc}"
+                )
+
+                # Retry this model up to 3 times.
+                if attempt < 3:
+
+                    # Small exponential backoff.
+                    wait_seconds = (
+                        2 ** attempt
+                    )
+
+                    print(
+                        f"Retrying in "
+                        f"{wait_seconds} seconds..."
+                    )
+
+                    time.sleep(
+                        wait_seconds
+                    )
+
+        print("")
+        print(
+            f"Model failed 3 times: {model}"
+        )
+
+        print(
+            "Moving to next model..."
+        )
+
+    raise RuntimeError(
+        "ALL AI MODELS FAILED. "
+        f"Last error: {last_error}"
+    )
