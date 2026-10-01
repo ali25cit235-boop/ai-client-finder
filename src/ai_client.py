@@ -7,134 +7,290 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODEL = "openrouter/free"
 
 
-def _parse_json(text: str) -> dict:
+LEAD_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "leads": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "business_name": {
+                        "type": "string"
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "location": {
+                        "type": "string"
+                    },
+                    "phone": {
+                        "type": ["string", "null"]
+                    },
+                    "email": {
+                        "type": ["string", "null"]
+                    },
+                    "official_website": {
+                        "type": ["string", "null"]
+                    },
+                    "source_url": {
+                        "type": "string"
+                    },
+                    "evidence": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "business_name",
+                    "category",
+                    "location",
+                    "phone",
+                    "email",
+                    "official_website",
+                    "source_url",
+                    "evidence"
+                ],
+                "additionalProperties": False
+            }
+        }
+    },
+    "required": ["leads"],
+    "additionalProperties": False
+}
+
+
+def clean_content(content) -> str:
+    """Convert different OpenRouter content formats into plain text."""
+
+    if isinstance(content, str):
+        return content.strip()
+
+    if isinstance(content, list):
+        parts = []
+
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text = item.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+
+        return "\n".join(parts).strip()
+
+    return ""
+
+
+def parse_json_response(text: str) -> dict:
+    """Parse JSON even if a model adds markdown fences."""
+
     text = (text or "").strip()
 
-    if text.startswith("```"):
-        text = text.replace("```json", "", 1)
-        text = text.replace("```", "", 1)
-        text = text.strip()
+    if not text:
+        raise ValueError("AI returned an empty response")
 
+    # Remove markdown code fences
+    if text.startswith("```"):
+        lines = text.splitlines()
+
+        if lines:
+            lines = lines[1:]
+
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+
+        text = "\n".join(lines).strip()
+
+    # First try the complete response
+    try:
+        parsed = json.loads(text)
+
+        if isinstance(parsed, dict):
+            return parsed
+
+    except json.JSONDecodeError:
+        pass
+
+    # Try extracting an object from surrounding text
     start = text.find("{")
     end = text.rfind("}")
 
-    if start == -1 or end == -1:
-        raise ValueError("AI did not return valid JSON")
+    if start != -1 and end > start:
+        candidate = text[start:end + 1]
 
-    return json.loads(text[start:end + 1])
+        try:
+            parsed = json.loads(candidate)
+
+            if isinstance(parsed, dict):
+                return parsed
+
+        except json.JSONDecodeError:
+            pass
+
+    raise ValueError(
+        "AI did not return valid JSON. "
+        f"Response preview: {text[:500]}"
+    )
 
 
-def extract_leads(search_results: list[dict], max_leads: int = 15) -> list[dict]:
-    """Use an OpenRouter free model to extract real business leads."""
+def extract_leads(
+    search_results: list[dict],
+    max_leads: int = 15
+) -> list[dict]:
 
     api_key = os.environ.get("OPENROUTER_API_KEY")
 
     if not api_key:
-        raise RuntimeError("OPENROUTER_API_KEY is not configured")
+        raise RuntimeError(
+            "OPENROUTER_API_KEY is not configured"
+        )
 
     prepared_results = []
 
-    for index, result in enumerate(search_results, start=1):
+    for index, result in enumerate(
+        search_results,
+        start=1
+    ):
         prepared_results.append({
             "result_number": index,
             "title": result.get("title", ""),
             "url": result.get("url", ""),
-            "content": result.get("content", "")[:1800],
+            "content": result.get(
+                "content",
+                ""
+            )[:2000],
         })
 
     prompt = f"""
 You are a business lead extraction assistant.
 
-I will give you web search results.
+Analyze the web search results below.
 
-Your job is to identify ONLY real individual/local businesses
-that could be potential website-design clients.
+Return ONLY REAL LOCAL BUSINESSES in the United States
+that could potentially need a website.
 
-IMPORTANT RULES:
+Reject:
+- articles
+- blog posts
+- news pages
+- legislation
+- insurance companies
+- large national corporations
+- directories as businesses
+- "how to start a business" pages
+- informational pages
+- job listings
+- generic search pages
 
-1. Do NOT return articles.
-2. Do NOT return news stories.
-3. Do NOT return laws or legislation.
-4. Do NOT return insurance companies.
-5. Do NOT return directories themselves.
-6. Do NOT return blog posts.
-7. Do NOT return generic "how to start a business" pages.
-8. Do NOT invent business information.
-9. A Yelp/Facebook/YellowPages/etc. page is a SOURCE, not the business website.
-10. Only put a URL in official_website if the source clearly indicates
-    it is the business's own official website.
-11. If an official website cannot be verified from these results,
-    use null for official_website.
-12. Only return businesses located in the United States.
-13. Prefer independent/local businesses rather than large national brands.
+IMPORTANT:
 
-Return ONLY this JSON object:
+A directory page such as Yelp, Facebook, YellowPages,
+Healthgrades, etc. can be used as a SOURCE for a business.
 
-{{
-  "leads": [
-    {{
-      "business_name": "Example Dental",
-      "category": "Dentist",
-      "location": "Austin, Texas",
-      "phone": "public phone or null",
-      "email": "public email or null",
-      "official_website": "https://example.com or null",
-      "source_url": "URL of the source page",
-      "evidence": "Short explanation of why this appears to be a real business and whether an official website was found"
-    }}
-  ]
-}}
+It must NOT be treated as the business's official website.
 
-Maximum {max_leads} leads.
+Do not invent business information.
+
+If you cannot verify an official website,
+set official_website to null.
+
+Return at most {max_leads} businesses.
 
 SEARCH RESULTS:
+
 {json.dumps(prepared_results, indent=2)}
 """
 
     payload = {
         "model": MODEL,
+
         "messages": [
             {
                 "role": "user",
-                "content": prompt,
+                "content": prompt
             }
         ],
-        "temperature": 0.1,
-        "max_tokens": 5000,
-        "response_format": {
-            "type": "json_object"
+
+        "temperature": 0,
+
+        "max_tokens": 6000,
+
+        "provider": {
+            "require_parameters": True
         },
+
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "business_leads",
+                "strict": True,
+                "schema": LEAD_SCHEMA
+            }
+        }
     }
 
     response = requests.post(
         OPENROUTER_URL,
+
         headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
+            "Authorization": (
+                f"Bearer {api_key}"
+            ),
+            "Content-Type": "application/json"
         },
+
         json=payload,
-        timeout=60,
+
+        timeout=90
     )
 
     if response.status_code >= 400:
         raise RuntimeError(
-            f"OpenRouter error {response.status_code}: "
+            f"OpenRouter error "
+            f"{response.status_code}: "
             f"{response.text[:1000]}"
         )
 
     data = response.json()
 
-    content = (
-        data.get("choices", [{}])[0]
-        .get("message", {})
-        .get("content", "")
+    choices = data.get("choices", [])
+
+    if not choices:
+        raise RuntimeError(
+            "OpenRouter returned no choices"
+        )
+
+    message = choices[0].get(
+        "message",
+        {}
     )
 
-    parsed = _parse_json(content)
+    content = clean_content(
+        message.get("content")
+    )
 
-    leads = parsed.get("leads", [])
+    # Some responses may expose parsed/refusal information
+    # differently, so handle refusal clearly.
+    refusal = message.get("refusal")
+
+    if refusal:
+        raise RuntimeError(
+            f"OpenRouter model refused the request: "
+            f"{refusal}"
+        )
+
+    parsed = parse_json_response(
+        content
+    )
+
+    leads = parsed.get(
+        "leads",
+        []
+    )
 
     if not isinstance(leads, list):
-        return []
+        raise ValueError(
+            "AI JSON does not contain a valid leads array"
+        )
 
     return leads[:max_leads]
