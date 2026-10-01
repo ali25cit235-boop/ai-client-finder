@@ -1,5 +1,5 @@
 {
-  "search_cursor": 6,
+  "search_cursor": 8,
   "businesses": {
     "dds associates houston tx": {
       "business_name": "DDS Associates",
@@ -168,6 +168,48 @@
       "location": "Indianapolis, IN",
       "first_seen_utc": "2026-10-01T19:38:10.534572+00:00",
       "source_url": "https://www.eaglecreekchiropractic.com"
+    },
+    "elixir aesthetics tampa fl": {
+      "business_name": "Elixir Aesthetics",
+      "location": "Tampa, FL",
+      "first_seen_utc": "2026-10-01T23:57:37.629580+00:00",
+      "source_url": "https://www.elixiraestheticsmedspa.com"
+    },
+    "aspire medspa and beauty bar tampa fl": {
+      "business_name": "Aspire MedSpa and Beauty Bar",
+      "location": "Tampa, FL",
+      "first_seen_utc": "2026-10-01T23:57:37.629580+00:00",
+      "source_url": "https://aspiremedspas.com"
+    },
+    "cell renew medical spa tampa fl": {
+      "business_name": "Cell Renew Medical Spa",
+      "location": "Tampa, FL",
+      "first_seen_utc": "2026-10-01T23:57:37.629580+00:00",
+      "source_url": "https://www.cellrenewtampa.com"
+    },
+    "skin nv tampa med spa tampa fl": {
+      "business_name": "Skin NV Tampa Med Spa",
+      "location": "Tampa, FL",
+      "first_seen_utc": "2026-10-01T23:57:37.629580+00:00",
+      "source_url": "https://www.yelp.com/biz/skin-nv-tampa-4"
+    },
+    "venus med spa tampa fl": {
+      "business_name": "Venus Med Spa",
+      "location": "Tampa, FL",
+      "first_seen_utc": "2026-10-01T23:57:37.629580+00:00",
+      "source_url": "https://www.yelp.com/biz/venus-med-spa-tampa"
+    },
+    "ryze med spa tampa fl": {
+      "business_name": "Ryze Med Spa",
+      "location": "Tampa, FL",
+      "first_seen_utc": "2026-10-01T23:57:37.629580+00:00",
+      "source_url": "https://www.yelp.com/biz/ryze-med-spa-tampa"
+    },
+    "elevate medical spa tampa plant city fl": {
+      "business_name": "Elevate Medical Spa",
+      "location": "Tampa & Plant City, FL",
+      "first_seen_utc": "2026-10-01T23:57:37.629580+00:00",
+      "source_url": "https://www.elevatetpa.com"
     }
   }
 }
