@@ -1,11 +1,18 @@
 def rank_lead(lead: dict) -> dict:
-    """Score a lead using available, verifiable business information."""
+    """Score a lead based on useful, verifiable signals."""
+
     score = 0
     reasons = []
 
-    if not lead.get("website"):
-        score += 40
-        reasons.append("No website URL found in the available sources")
+    website_status = lead.get("website_status", "")
+
+    if website_status == "not_found_in_sources":
+        score += 45
+        reasons.append("No official website found in retrieved sources")
+
+    elif website_status == "unreachable_or_blocked":
+        score += 20
+        reasons.append("Candidate website could not be reached")
 
     if lead.get("phone"):
         score += 15
@@ -15,16 +22,17 @@ def rank_lead(lead: dict) -> dict:
         score += 15
         reasons.append("Public business email available")
 
-    if lead.get("business_name"):
-        score += 10
-
-    if lead.get("source_url"):
-        score += 10
-        reasons.append("Source link available for review")
-
     if lead.get("category"):
         score += 10
         reasons.append("Business category identified")
+
+    if lead.get("location"):
+        score += 5
+        reasons.append("Business location identified")
+
+    if lead.get("source_url"):
+        score += 10
+        reasons.append("Source page available")
 
     return {
         **lead,
@@ -34,10 +42,14 @@ def rank_lead(lead: dict) -> dict:
 
 
 def rank_leads(leads: list[dict]) -> list[dict]:
-    """Return leads sorted by score, highest first."""
     ranked = [rank_lead(lead) for lead in leads]
+
     return sorted(
         ranked,
-        key=lambda lead: lead["score"],
+        key=lambda lead: (
+            lead.get("score", 0),
+            bool(lead.get("phone")),
+            bool(lead.get("email")),
+        ),
         reverse=True,
     )
