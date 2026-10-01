@@ -26,7 +26,6 @@ jobs:
       - name: Run client finder
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
         run: python src/main.py
 
       - name: Save history and report
