@@ -180,7 +180,7 @@ def main() -> None:
 
     ai_leads = extract_leads(
         raw_results,
-        max_leads=15
+        max_leads=8
     )
 
     print(
