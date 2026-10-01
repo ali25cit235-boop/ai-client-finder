@@ -26,6 +26,7 @@ jobs:
       - name: Run client finder
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
         run: python src/main.py
 
       - name: Save history and report
