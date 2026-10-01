@@ -9,6 +9,7 @@ from ai_client import extract_leads
 from verify_website import verify_website
 from rank_leads import rank_leads
 from report import create_report
+from discord_notify import send_leads_to_discord
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -265,6 +266,12 @@ def main() -> None:
     )
 
     save_history(history)
+
+    try:
+        send_leads_to_discord(top_five)
+        print("Discord notification sent successfully.")
+     except Exception as exc:
+        print(f"Discord notification failed: {exc}")
 
     print("")
     print(report)
