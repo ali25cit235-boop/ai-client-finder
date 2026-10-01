@@ -6,25 +6,25 @@ import requests
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Free models.
-# The agent will try each model up to 3 times.
+# Current free models.
+# Each model gets up to 3 attempts for temporary failures.
 MODELS = [
-    "nvidia/nemotron-3-ultra:free",
-    "inclusionai/ling-3.0-flash-fin:free",
-    "qwen/qwen3.8-27b:free",
+    "stealth/space-bunny-alpha:free",
+    "nvidia/nemotron-3-ultra-550b-a55b-20260604:free",
+    "poolside/laguna-s-2.1:free",
 ]
 
 
-def clean_text(value):
-    """Convert different response formats into plain text."""
+def clean_content(content) -> str:
+    """Convert OpenRouter content into plain text."""
 
-    if isinstance(value, str):
-        return value.strip()
+    if isinstance(content, str):
+        return content.strip()
 
-    if isinstance(value, list):
+    if isinstance(content, list):
         parts = []
 
-        for item in value:
+        for item in content:
             if isinstance(item, str):
                 parts.append(item)
 
@@ -40,10 +40,7 @@ def clean_text(value):
 
 
 def extract_json(text: str) -> dict:
-    """
-    Parse JSON returned by the model.
-    Handles markdown code fences and extra text.
-    """
+    """Parse JSON even when the model adds markdown."""
 
     text = (text or "").strip()
 
@@ -64,7 +61,7 @@ def extract_json(text: str) -> dict:
 
         text = "\n".join(lines).strip()
 
-    # First try complete JSON.
+    # Direct JSON parse.
     try:
         result = json.loads(text)
 
@@ -92,7 +89,7 @@ def extract_json(text: str) -> dict:
 
     raise ValueError(
         "AI returned invalid JSON. "
-        f"Response preview: {text[:700]}"
+        f"Preview: {text[:700]}"
     )
 
 
@@ -103,8 +100,10 @@ def build_prompt(
 
     prepared_results = []
 
+    # Keep the prompt small so free models
+    # do not waste output on unnecessary text.
     for index, result in enumerate(
-        search_results[:12],
+        search_results[:10],
         start=1
     ):
         prepared_results.append({
@@ -120,46 +119,47 @@ def build_prompt(
             "content": result.get(
                 "content",
                 ""
-            )[:1000]
+            )[:800]
         })
 
     return f"""
-You are a local-business lead extraction assistant.
+You are a business lead extraction assistant.
 
 Analyze the web search results below.
 
-Return ONLY REAL LOCAL BUSINESSES in the United States.
+Find up to {max_leads} REAL LOCAL BUSINESSES
+in the United States.
 
-We need up to {max_leads} businesses that could potentially
+ONLY return actual businesses that could potentially
 need a website.
 
-REJECT these:
+REJECT:
 - articles
 - blog posts
 - news
+- laws
 - legislation
 - insurance companies
-- directories as businesses
-- job listings
+- directories themselves
 - generic information pages
-- "how to start a business" pages
-- national corporations
+- job listings
 - government pages
-- organizations that are not local businesses
+- national corporations
+- "how to start a business" pages
 
-A directory page can be used as a SOURCE,
-but the directory itself is NOT the business.
+A directory page may be used as a SOURCE,
+but the directory is NOT the business.
 
-IMPORTANT:
+RULES:
 - Never invent information.
-- Use null when a value is unavailable.
-- Only use an official_website when the result clearly indicates
-  it belongs to that business.
-- A missing website in search results is NOT absolute proof
-  that the business has no website.
+- Use null when information is unavailable.
+- official_website must be null if it cannot be verified.
+- source_url must be the actual source page.
+- Missing website is NOT absolute proof that no website exists.
+- Keep evidence very short.
 - Return ONLY JSON.
-- Do not use markdown.
-- Do not add explanations outside JSON.
+- No markdown.
+- No explanation outside JSON.
 
 Use exactly this structure:
 
@@ -173,7 +173,7 @@ Use exactly this structure:
       "email": null,
       "official_website": null,
       "source_url": "https://source.com/page",
-      "evidence": "Local dental business identified in the source."
+      "evidence": "Local dental practice found in source."
     }}
   ]
 }}
@@ -213,7 +213,8 @@ def call_model(
 
         "temperature": 0,
 
-        "max_tokens": 2500
+        # Enough for a small 5-lead JSON response.
+        "max_tokens": 5000
     }
 
     response = requests.post(
@@ -232,9 +233,10 @@ def call_model(
         timeout=90
     )
 
-    # Temporary/rate-limit errors should be
-    # handled by the caller and retried.
-    if response.status_code in (
+    status = response.status_code
+
+    # Temporary errors: retry this model.
+    if status in (
         408,
         429,
         500,
@@ -243,14 +245,15 @@ def call_model(
         504
     ):
         raise RuntimeError(
-            f"RETRYABLE_HTTP_{response.status_code}: "
+            f"RETRYABLE_HTTP_{status}: "
             f"{response.text[:800]}"
         )
 
-    # Permanent API errors.
-    if response.status_code >= 400:
-        raise RuntimeError(
-            f"PERMANENT_HTTP_{response.status_code}: "
+    # 404 / 400 etc. are usually model/config issues.
+    # Do NOT waste 3 attempts on them.
+    if status >= 400:
+        raise ValueError(
+            f"PERMANENT_HTTP_{status}: "
             f"{response.text[:1000]}"
         )
 
@@ -277,12 +280,10 @@ def call_model(
         {}
     )
 
-    content = clean_text(
+    content = clean_content(
         message.get("content")
     )
 
-    # Empty output or truncated output:
-    # try the same model again.
     if not content:
         raise RuntimeError(
             "EMPTY_RESPONSE: "
@@ -309,7 +310,7 @@ def call_model(
         list
     ):
         raise ValueError(
-            "AI response does not contain a valid leads array"
+            "Invalid leads array"
         )
 
     return leads
@@ -334,19 +335,17 @@ def extract_leads(
 
         print("")
         print(
-            f"=== Trying model: {model} ==="
+            f"========== {model} =========="
         )
 
-        for attempt in range(
-            1,
-            4
-        ):
+        for attempt in range(1, 4):
 
             print(
                 f"Attempt {attempt}/3"
             )
 
             try:
+
                 leads = call_model(
                     model,
                     prompt
@@ -358,25 +357,35 @@ def extract_leads(
 
                 return leads[:max_leads]
 
+            except ValueError as exc:
+
+                # Permanent error such as 404.
+                last_error = exc
+
+                print(
+                    f"PERMANENT FAILURE: "
+                    f"{exc}"
+                )
+
+                print(
+                    "Skipping this model."
+                )
+
+                break
+
             except Exception as exc:
 
                 last_error = exc
 
                 print(
-                    f"FAILED: {model} "
-                    f"attempt {attempt}/3"
+                    f"TEMPORARY FAILURE: "
+                    f"{exc}"
                 )
 
-                print(
-                    f"Reason: {exc}"
-                )
-
-                # Retry this model up to 3 times.
                 if attempt < 3:
 
-                    # Small exponential backoff.
                     wait_seconds = (
-                        2 ** attempt
+                        3 * attempt
                     )
 
                     print(
@@ -388,16 +397,11 @@ def extract_leads(
                         wait_seconds
                     )
 
-        print("")
         print(
-            f"Model failed 3 times: {model}"
-        )
-
-        print(
-            "Moving to next model..."
+            f"Trying next model..."
         )
 
     raise RuntimeError(
-        "ALL AI MODELS FAILED. "
+        "ALL FREE AI MODELS FAILED. "
         f"Last error: {last_error}"
     )
