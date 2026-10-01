@@ -4,28 +4,44 @@ import requests
 
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "openrouter/free"
+
+# Fixed free model.
+MODEL = "qwen/qwen3.8-27b:free"
 
 
 def extract_json(text: str) -> dict:
     text = (text or "").strip()
 
     if not text:
-        raise ValueError("AI returned an empty response")
+        raise ValueError(
+            "AI returned an empty response"
+        )
 
-    # Remove markdown fences
     if "```" in text:
         text = text.replace("```json", "")
         text = text.replace("```", "")
         text = text.strip()
 
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
     start = text.find("{")
     end = text.rfind("}")
 
     if start != -1 and end > start:
-        text = text[start:end + 1]
+        candidate = text[start:end + 1]
 
-    return json.loads(text)
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+
+    raise ValueError(
+        "AI returned invalid JSON. "
+        f"Preview: {text[:500]}"
+    )
 
 
 def extract_leads(
@@ -33,14 +49,15 @@ def extract_leads(
     max_leads: int = 5
 ) -> list[dict]:
 
-    api_key = os.environ.get("OPENROUTER_API_KEY")
+    api_key = os.environ.get(
+        "OPENROUTER_API_KEY"
+    )
 
     if not api_key:
         raise RuntimeError(
             "OPENROUTER_API_KEY is not configured"
         )
 
-    # Keep the input small.
     prepared_results = []
 
     for index, result in enumerate(
@@ -49,18 +66,27 @@ def extract_leads(
     ):
         prepared_results.append({
             "id": index,
-            "title": result.get("title", ""),
-            "url": result.get("url", ""),
+            "title": result.get(
+                "title",
+                ""
+            ),
+            "url": result.get(
+                "url",
+                ""
+            ),
             "content": result.get(
-                "content", ""
+                "content",
+                ""
             )[:1000]
         })
 
     prompt = f"""
-You are filtering web search results for a local-business lead finder.
+You are a business lead filtering assistant.
 
-From the search results below, identify ONLY real independent/local
-businesses in the United States.
+Analyze the web search results below.
+
+Return ONLY REAL LOCAL BUSINESSES
+located in the United States.
 
 Reject:
 - articles
@@ -68,15 +94,21 @@ Reject:
 - news
 - laws
 - insurance companies
-- directories
-- directory pages as businesses
-- job pages
+- directories as businesses
+- job listings
 - generic information pages
-- national chains
+- national corporations
+- informational websites
 
-We need up to {max_leads} businesses.
+A directory page can be used as a SOURCE,
+but it is NOT the business's official website.
 
-For each valid business provide:
+Do not invent information.
+
+We need a maximum of {max_leads} businesses.
+
+For every business return:
+
 business_name
 category
 location
@@ -86,16 +118,16 @@ official_website
 source_url
 evidence
 
-IMPORTANT:
-- Never invent information.
-- Use null if a field is unavailable.
-- A directory URL is a source_url, NOT an official website.
-- If you cannot verify an official website, use null.
-- Return ONLY JSON.
-- No markdown.
-- No explanation outside the JSON.
+Use null when a field is unavailable.
 
-Use EXACTLY this format:
+If an official website cannot be verified,
+official_website must be null.
+
+Return ONLY valid JSON.
+Do NOT use markdown.
+Do NOT add explanations.
+
+Use exactly:
 
 {{
   "leads": [
@@ -106,31 +138,50 @@ Use EXACTLY this format:
       "phone": "123-456-7890",
       "email": null,
       "official_website": null,
-      "source_url": "https://example.com/source",
-      "evidence": "Local dental practice identified in source."
+      "source_url": "https://source.com/page",
+      "evidence": "Local business identified in source."
     }}
   ]
 }}
 
 SEARCH RESULTS:
 
-{json.dumps(prepared_results, indent=2)}
+{json.dumps(
+    prepared_results,
+    indent=2
+)}
 """
 
     payload = {
         "model": MODEL,
+
         "messages": [
             {
                 "role": "user",
                 "content": prompt
             }
         ],
+
         "temperature": 0,
-        "max_tokens": 2500
+
+        # Keep the response comfortably sized.
+        "max_tokens": 4000,
+
+        # Important: prevent reasoning from
+        # consuming the whole completion budget.
+        "reasoning": {
+            "enabled": False
+        },
+
+        # Ask for JSON directly.
+        "response_format": {
+            "type": "json_object"
+        }
     }
 
     response = requests.post(
         OPENROUTER_URL,
+
         headers={
             "Authorization": (
                 f"Bearer {api_key}"
@@ -138,7 +189,9 @@ SEARCH RESULTS:
             "Content-Type": "application/json",
             "X-Title": "AI Client Finder"
         },
+
         json=payload,
+
         timeout=90
     )
 
@@ -151,7 +204,10 @@ SEARCH RESULTS:
 
     data = response.json()
 
-    choices = data.get("choices", [])
+    choices = data.get(
+        "choices",
+        []
+    )
 
     if not choices:
         raise RuntimeError(
@@ -164,11 +220,9 @@ SEARCH RESULTS:
     )
 
     content = message.get(
-        "content",
-        ""
+        "content"
     )
 
-    # Some providers may return content in a list.
     if isinstance(content, list):
         parts = []
 
@@ -184,20 +238,29 @@ SEARCH RESULTS:
 
         content = "\n".join(parts)
 
-    # If normal content is empty, show useful debugging information.
     if not content:
         raise RuntimeError(
-            "OpenRouter returned an empty content field. "
-            f"Response: {json.dumps(data)[:1500]}"
+            "OpenRouter returned empty content. "
+            f"Finish reason: "
+            f"{choices[0].get('finish_reason')}"
         )
 
-    parsed = extract_json(content)
+    parsed = extract_json(
+        content
+    )
 
-    leads = parsed.get("leads", [])
+    leads = parsed.get(
+        "leads",
+        []
+    )
 
-    if not isinstance(leads, list):
+    if not isinstance(
+        leads,
+        list
+    ):
         raise ValueError(
-            "AI response does not contain a valid leads array"
+            "AI response does not contain "
+            "a valid leads array"
         )
 
     return leads[:max_leads]
