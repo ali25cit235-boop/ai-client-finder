@@ -2,7 +2,6 @@ import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlparse
 
 from search import search_web
 from ai_client import extract_leads
@@ -49,18 +48,6 @@ def normalize_text(value: str) -> str:
     ).strip()
 
 
-def normalize_domain(url: str) -> str:
-    if not url:
-        return ""
-
-    parsed = urlparse(
-        url if "://" in url else "https://" + url
-    )
-
-    hostname = (parsed.hostname or "").lower()
-    return hostname.removeprefix("www.")
-
-
 def make_business_key(name: str, location: str) -> str:
     return normalize_text(f"{name} {location}")
 
@@ -74,21 +61,41 @@ def load_history() -> dict:
 
     try:
         data = json.loads(
-            HISTORY_FILE.read_text(encoding="utf-8")
+            HISTORY_FILE.read_text(
+                encoding="utf-8"
+            )
         )
 
         if not isinstance(data, dict):
-            raise ValueError("History must be an object")
+            raise ValueError(
+                "History must be a JSON object"
+            )
 
-        data.setdefault("search_cursor", 0)
-        data.setdefault("businesses", {})
+        data.setdefault(
+            "search_cursor",
+            0
+        )
 
-        if not isinstance(data["businesses"], dict):
-            raise ValueError("Businesses history must be an object")
+        data.setdefault(
+            "businesses",
+            {}
+        )
+
+        if not isinstance(
+            data["businesses"],
+            dict
+        ):
+            raise ValueError(
+                "Businesses history must be an object"
+            )
 
         return data
 
-    except (json.JSONDecodeError, OSError, ValueError) as exc:
+    except (
+        json.JSONDecodeError,
+        OSError,
+        ValueError,
+    ) as exc:
         raise RuntimeError(
             "Cannot safely read history.json"
         ) from exc
@@ -101,7 +108,10 @@ def save_history(history: dict) -> None:
     )
 
     HISTORY_FILE.write_text(
-        json.dumps(history, indent=2),
+        json.dumps(
+            history,
+            indent=2
+        ),
         encoding="utf-8",
     )
 
@@ -110,33 +120,47 @@ def main() -> None:
     history = load_history()
     seen = history["businesses"]
 
-    cursor = int(history.get("search_cursor", 0))
+    cursor = int(
+        history.get(
+            "search_cursor",
+            0
+        )
+    )
+
     selected_targets = []
 
     for offset in range(2):
-        index = (cursor + offset) % len(SEARCH_TARGETS)
-        selected_targets.append(SEARCH_TARGETS[index])
+        index = (
+            cursor + offset
+        ) % len(SEARCH_TARGETS)
+
+        selected_targets.append(
+            SEARCH_TARGETS[index]
+        )
 
     history["search_cursor"] = (
         cursor + len(selected_targets)
     ) % len(SEARCH_TARGETS)
 
-    print("Selected searches:")
-
     raw_results = []
+
+    print("Selected searches:")
 
     for category, location in selected_targets:
         query = (
-            f"independent {category} in {location} "
-            f"local business directory contact "
-            f"official website"
+            f"independent {category} "
+            f"in {location} "
+            f"local business directory "
+            f"contact official website"
         )
 
-        print(f"Searching: {query}")
+        print(
+            f"Searching: {query}"
+        )
 
         results = search_web(
             query,
-            count=10,
+            count=10
         )
 
         for result in results:
@@ -144,7 +168,10 @@ def main() -> None:
 
         raw_results.extend(results)
 
-    print(f"Raw search results: {len(raw_results)}")
+    print(
+        f"Raw search results: "
+        f"{len(raw_results)}"
+    )
 
     if not raw_results:
         raise RuntimeError(
@@ -153,40 +180,62 @@ def main() -> None:
 
     ai_leads = extract_leads(
         raw_results,
-        max_leads=15,
+        max_leads=15
     )
 
-    print(f"AI extracted leads: {len(ai_leads)}")
+    print(
+        f"AI extracted leads: "
+        f"{len(ai_leads)}"
+    )
 
     candidates = {}
 
     for lead in ai_leads:
         name = str(
-            lead.get("business_name") or ""
+            lead.get(
+                "business_name"
+            ) or ""
         ).strip()
 
         location = str(
-            lead.get("location") or ""
+            lead.get(
+                "location"
+            ) or ""
         ).strip()
 
         source_url = str(
-            lead.get("source_url") or ""
+            lead.get(
+                "source_url"
+            ) or ""
         ).strip()
 
-        if not name or not location or not source_url:
+        if (
+            not name
+            or not location
+            or not source_url
+        ):
             continue
 
         key = make_business_key(
             name,
-            location,
+            location
         )
 
-        if not key or key in seen or key in candidates:
+        if (
+            not key
+            or key in seen
+            or key in candidates
+        ):
             continue
 
-        website = lead.get("official_website")
+        website = lead.get(
+            "official_website"
+        )
 
-        if isinstance(website, str):
+        if isinstance(
+            website,
+            str
+        ):
             website = website.strip()
         else:
             website = ""
@@ -196,47 +245,62 @@ def main() -> None:
                 website
             )
 
-            if website_check["status"] == "reachable":
-                website_status = "verified_reachable"
+            website_status = website_check.get(
+                "status",
+                "unknown"
+            )
+
+            if website_status == "reachable":
                 website = (
-                    website_check.get("final_url")
+                    website_check.get(
+                        "final_url"
+                    )
                     or website
                 )
 
-            elif website_check["status"] == "non_official_source":
+            elif website_status == "non_official_source":
                 website = ""
-                website_status = "not_found_in_sources"
-
-            else:
                 website_status = (
-                    website_check["status"]
+                    "not_found_in_sources"
                 )
 
         else:
-            website_status = "not_found_in_sources"
+            website_status = (
+                "not_found_in_sources"
+            )
 
         candidates[key] = {
             "business_name": name,
             "category": str(
-                lead.get("category") or "Unknown"
+                lead.get(
+                    "category"
+                ) or "Unknown"
             ).strip(),
             "location": location,
             "phone": str(
-                lead.get("phone") or ""
+                lead.get(
+                    "phone"
+                ) or ""
             ).strip(),
             "email": str(
-                lead.get("email") or ""
+                lead.get(
+                    "email"
+                ) or ""
             ).strip(),
             "website": website,
             "website_status": website_status,
             "source_url": source_url,
             "evidence": str(
-                lead.get("evidence") or ""
+                lead.get(
+                    "evidence"
+                ) or ""
             ).strip(),
         }
 
     ranked = rank_leads(
-        list(candidates.values())
+        list(
+            candidates.values()
+        )
     )
 
     top_five = ranked[:5]
@@ -247,13 +311,21 @@ def main() -> None:
 
     for key, lead in candidates.items():
         seen[key] = {
-            "business_name": lead["business_name"],
-            "location": lead["location"],
+            "business_name": lead[
+                "business_name"
+            ],
+            "location": lead[
+                "location"
+            ],
             "first_seen_utc": now,
-            "source_url": lead["source_url"],
+            "source_url": lead[
+                "source_url"
+            ],
         }
 
-    report = create_report(top_five)
+    report = create_report(
+        top_five
+    )
 
     REPORT_FILE.parent.mkdir(
         parents=True,
@@ -265,16 +337,27 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    save_history(history)
-
-    try:
-        send_leads_to_discord(top_five)
-        print("Discord notification sent successfully.")
-     except Exception as exc:
-        print(f"Discord notification failed: {exc}")
+    save_history(
+        history
+    )
 
     print("")
     print(report)
+
+    try:
+        send_leads_to_discord(
+            top_five
+        )
+        print(
+            "Discord notification "
+            "sent successfully."
+        )
+
+    except Exception as exc:
+        print(
+            f"Discord notification "
+            f"failed: {exc}"
+        )
 
 
 if __name__ == "__main__":
