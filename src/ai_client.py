@@ -1,168 +1,75 @@
+
 import json
 import os
 import time
 import requests
 
-
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Current free models.
-# Each model gets up to 3 attempts for temporary failures.
 MODELS = [
-    "stealth/space-bunny-alpha:free",
-    "nvidia/nemotron-3-ultra-550b-a55b-20260604:free",
-    "poolside/laguna-s-2.1:free",
+    "nvidia/nemotron-3-ultra:free",
+    "qwen/qwen3.8-27b:free",
 ]
 
 
-def clean_content(content) -> str:
-    """Convert OpenRouter content into plain text."""
-
-    if isinstance(content, str):
-        return content.strip()
-
-    if isinstance(content, list):
-        parts = []
-
-        for item in content:
-            if isinstance(item, str):
-                parts.append(item)
-
-            elif isinstance(item, dict):
-                text = item.get("text")
-
-                if isinstance(text, str):
-                    parts.append(text)
-
-        return "\n".join(parts).strip()
-
-    return ""
-
-
-def extract_json(text: str) -> dict:
-    """Parse JSON even when the model adds markdown."""
-
+def parse_json(text):
     text = (text or "").strip()
 
-    if not text:
-        raise ValueError(
-            "AI returned an empty response"
-        )
-
-    # Remove markdown fences.
     if text.startswith("```"):
         lines = text.splitlines()
-
-        if lines:
-            lines = lines[1:]
+        lines = lines[1:]
 
         if lines and lines[-1].strip() == "```":
             lines = lines[:-1]
 
         text = "\n".join(lines).strip()
 
-    # Direct JSON parse.
     try:
         result = json.loads(text)
-
         if isinstance(result, dict):
             return result
-
     except json.JSONDecodeError:
         pass
 
-    # Try extracting JSON object from surrounding text.
     start = text.find("{")
     end = text.rfind("}")
 
-    if start != -1 and end > start:
-        candidate = text[start:end + 1]
+    if start >= 0 and end > start:
+        result = json.loads(text[start:end + 1])
+        if isinstance(result, dict):
+            return result
 
-        try:
-            result = json.loads(candidate)
-
-            if isinstance(result, dict):
-                return result
-
-        except json.JSONDecodeError:
-            pass
-
-    raise ValueError(
-        "AI returned invalid JSON. "
-        f"Preview: {text[:700]}"
-    )
+    raise ValueError("AI returned invalid JSON")
 
 
-def build_prompt(
-    search_results: list[dict],
-    max_leads: int
-) -> str:
+def build_prompt(search_results, max_leads):
+    results = []
 
-    prepared_results = []
-
-    # Keep the prompt small so free models
-    # do not waste output on unnecessary text.
-    for index, result in enumerate(
-        search_results[:10],
-        start=1
-    ):
-        prepared_results.append({
-            "id": index,
-            "title": result.get(
-                "title",
-                ""
-            ),
-            "url": result.get(
-                "url",
-                ""
-            ),
-            "content": result.get(
-                "content",
-                ""
-            )[:800]
+    for item in search_results[:10]:
+        results.append({
+            "title": item.get("title", ""),
+            "url": item.get("url", ""),
+            "content": item.get("content", "")[:700]
         })
 
     return f"""
-You are a business lead extraction assistant.
+Find up to {max_leads} REAL independent local businesses
+in the United States that may need a website.
 
-Analyze the web search results below.
+STRICT RULES:
+- Reject a business if its official website is identified.
+- Prefer businesses listed on directories or social platforms.
+- Never treat a directory as the business itself.
+- Never invent names, phone numbers, emails or URLs.
+- Email is optional. Phone is useful but optional.
+- If information is unknown, use null.
+- If the business's website status is uncertain, use
+  website_status "uncertain".
+- Do not claim that a business has no website merely
+  because a search result does not show one.
+- Return only valid JSON, without markdown.
 
-Find up to {max_leads} REAL LOCAL BUSINESSES
-in the United States.
-
-ONLY return actual businesses that could potentially
-need a website.
-
-REJECT:
-- articles
-- blog posts
-- news
-- laws
-- legislation
-- insurance companies
-- directories themselves
-- generic information pages
-- job listings
-- government pages
-- national corporations
-- "how to start a business" pages
-
-A directory page may be used as a SOURCE,
-but the directory is NOT the business.
-
-RULES:
-- Never invent information.
-- Use null when information is unavailable.
-- official_website must be null if it cannot be verified.
-- source_url must be the actual source page.
-- Missing website is NOT absolute proof that no website exists.
-- Keep evidence very short.
-- Return ONLY JSON.
-- No markdown.
-- No explanation outside JSON.
-
-Use exactly this structure:
-
+Use this exact structure:
 {{
   "leads": [
     {{
@@ -172,236 +79,123 @@ Use exactly this structure:
       "phone": "123-456-7890",
       "email": null,
       "official_website": null,
-      "source_url": "https://source.com/page",
-      "evidence": "Local dental practice found in source."
+      "website_status": "not_found_in_sources",
+      "source_url": "https://directory.example/business",
+      "evidence": "Listed in a local business directory."
     }}
   ]
 }}
 
 SEARCH RESULTS:
-
-{json.dumps(
-    prepared_results,
-    indent=2
-)}
+{json.dumps(results, ensure_ascii=False)}
 """
 
 
-def call_model(
-    model: str,
-    prompt: str
-) -> list[dict]:
+def request_model(model, prompt):
+    key = os.getenv("OPENROUTER_API_KEY")
 
-    api_key = os.environ.get(
-        "OPENROUTER_API_KEY"
-    )
-
-    if not api_key:
-        raise RuntimeError(
-            "OPENROUTER_API_KEY is not configured"
-        )
-
-    payload = {
-        "model": model,
-
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-
-        "temperature": 0,
-
-        # Enough for a small 5-lead JSON response.
-        "max_tokens": 5000
-    }
+    if not key:
+        raise RuntimeError("OPENROUTER_API_KEY secret is missing")
 
     response = requests.post(
         OPENROUTER_URL,
-
         headers={
-            "Authorization": (
-                f"Bearer {api_key}"
-            ),
+            "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
-            "X-Title": "AI Client Finder"
+            "X-Title": "AI Client Finder",
         },
-
-        json=payload,
-
-        timeout=90
+        json={
+            "model": model,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0,
+            "max_tokens": 3500,
+        },
+        timeout=90,
     )
 
-    status = response.status_code
+    if response.status_code >= 400:
+        message = response.text[:800]
 
-    # Temporary errors: retry this model.
-    if status in (
-        408,
-        429,
-        500,
-        502,
-        503,
-        504
-    ):
+        if response.status_code in (400, 401, 403, 404):
+            raise ValueError(
+                f"PERMANENT HTTP {response.status_code}: {message}"
+            )
+
         raise RuntimeError(
-            f"RETRYABLE_HTTP_{status}: "
-            f"{response.text[:800]}"
-        )
-
-    # 404 / 400 etc. are usually model/config issues.
-    # Do NOT waste 3 attempts on them.
-    if status >= 400:
-        raise ValueError(
-            f"PERMANENT_HTTP_{status}: "
-            f"{response.text[:1000]}"
+            f"HTTP {response.status_code}: {message}"
         )
 
     data = response.json()
-
-    choices = data.get(
-        "choices",
-        []
-    )
+    choices = data.get("choices", [])
 
     if not choices:
-        raise RuntimeError(
-            "OpenRouter returned no choices"
-        )
+        raise RuntimeError("Model returned no choices")
 
     choice = choices[0]
+    message = choice.get("message", {})
+    content = message.get("content")
 
-    finish_reason = choice.get(
-        "finish_reason"
-    )
-
-    message = choice.get(
-        "message",
-        {}
-    )
-
-    content = clean_content(
-        message.get("content")
-    )
+    if isinstance(content, list):
+        content = "\n".join(
+            part.get("text", "")
+            for part in content
+            if isinstance(part, dict)
+        )
 
     if not content:
         raise RuntimeError(
-            "EMPTY_RESPONSE: "
-            f"finish_reason={finish_reason}"
+            f"Empty response: {choice.get('finish_reason')}"
         )
 
-    if finish_reason == "length":
-        raise RuntimeError(
-            "OUTPUT_TRUNCATED: "
-            "model reached its output limit"
-        )
+    if choice.get("finish_reason") == "length":
+        raise RuntimeError("Response was truncated")
 
-    parsed = extract_json(
-        content
-    )
+    result = parse_json(content)
+    leads = result.get("leads", [])
 
-    leads = parsed.get(
-        "leads",
-        []
-    )
-
-    if not isinstance(
-        leads,
-        list
-    ):
-        raise ValueError(
-            "Invalid leads array"
-        )
+    if not isinstance(leads, list):
+        raise ValueError("Invalid leads array")
 
     return leads
 
 
-def extract_leads(
-    search_results: list[dict],
-    max_leads: int = 5
-) -> list[dict]:
-
+def extract_leads(search_results, max_leads=5):
     if not search_results:
         return []
 
-    prompt = build_prompt(
-        search_results,
-        max_leads
-    )
-
+    prompt = build_prompt(search_results, max_leads)
     last_error = None
 
     for model in MODELS:
-
-        print("")
-        print(
-            f"========== {model} =========="
-        )
+        print(f"Trying model: {model}")
 
         for attempt in range(1, 4):
-
-            print(
-                f"Attempt {attempt}/3"
-            )
+            print(f"Attempt {attempt}/3")
 
             try:
-
-                leads = call_model(
-                    model,
-                    prompt
-                )
-
-                print(
-                    f"SUCCESS: {model}"
-                )
-
+                leads = request_model(model, prompt)
+                print(f"Success: {model}")
                 return leads[:max_leads]
 
             except ValueError as exc:
-
-                # Permanent error such as 404.
+                # Invalid model IDs and other permanent errors
+                # should not be retried.
                 last_error = exc
-
-                print(
-                    f"PERMANENT FAILURE: "
-                    f"{exc}"
-                )
-
-                print(
-                    "Skipping this model."
-                )
-
+                print(f"Permanent error: {exc}")
                 break
 
             except Exception as exc:
-
                 last_error = exc
-
-                print(
-                    f"TEMPORARY FAILURE: "
-                    f"{exc}"
-                )
+                print(f"Attempt failed: {exc}")
 
                 if attempt < 3:
+                    time.sleep(2 * attempt)
 
-                    wait_seconds = (
-                        3 * attempt
-                    )
-
-                    print(
-                        f"Retrying in "
-                        f"{wait_seconds} seconds..."
-                    )
-
-                    time.sleep(
-                        wait_seconds
-                    )
-
-        print(
-            f"Trying next model..."
-        )
+        print("Trying the next model...")
 
     raise RuntimeError(
-        "ALL FREE AI MODELS FAILED. "
-        f"Last error: {last_error}"
+        f"All configured models failed. Last error: {last_error}"
     )
+    
