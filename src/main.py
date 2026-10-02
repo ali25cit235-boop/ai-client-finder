@@ -2,6 +2,7 @@ import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 from search import search_web
 from ai_client import extract_leads
@@ -10,355 +11,270 @@ from rank_leads import rank_leads
 from report import create_report
 from discord_notify import send_leads_to_discord
 
-
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(file).resolve().parent.parent
 HISTORY_FILE = ROOT / "data" / "history.json"
 REPORT_FILE = ROOT / "data" / "latest_report.md"
 
-
 SEARCH_TARGETS = [
-    ("dentist", "Houston, Texas"),
-    ("med spa", "Phoenix, Arizona"),
-    ("optometrist", "Columbus, Ohio"),
-    ("veterinary clinic", "Charlotte, North Carolina"),
-    ("chiropractor", "Indianapolis, Indiana"),
-    ("dentist", "Nashville, Tennessee"),
-    ("med spa", "Tampa, Florida"),
-    ("optometrist", "Kansas City, Missouri"),
-    ("veterinary clinic", "Oklahoma City, Oklahoma"),
-    ("chiropractor", "Richmond, Virginia"),
-    ("dentist", "Albuquerque, New Mexico"),
-    ("med spa", "Sacramento, California"),
-    ("optometrist", "Louisville, Kentucky"),
-    ("veterinary clinic", "Birmingham, Alabama"),
-    ("chiropractor", "Boise, Idaho"),
-    ("dentist", "Raleigh, North Carolina"),
-    ("med spa", "Las Vegas, Nevada"),
-    ("optometrist", "Omaha, Nebraska"),
-    ("veterinary clinic", "Tulsa, Oklahoma"),
-    ("chiropractor", "Memphis, Tennessee"),
+("dentist", "Houston, Texas"),
+("med spa", "Phoenix, Arizona"),
+("optometrist", "Columbus, Ohio"),
+("veterinary clinic", "Charlotte, North Carolina"),
+("chiropractor", "Indianapolis, Indiana"),
+("dentist", "Nashville, Tennessee"),
+("med spa", "Tampa, Florida"),
+("optometrist", "Kansas City, Missouri"),
+("veterinary clinic", "Oklahoma City, Oklahoma"),
+("chiropractor", "Richmond, Virginia"),
+("dentist", "Albuquerque, New Mexico"),
+("med spa", "Sacramento, California"),
+("optometrist", "Louisville, Kentucky"),
+("veterinary clinic", "Birmingham, Alabama"),
+("chiropractor", "Boise, Idaho"),
+("dentist", "Raleigh, North Carolina"),
+("med spa", "Las Vegas, Nevada"),
+("optometrist", "Omaha, Nebraska"),
+("veterinary clinic", "Tulsa, Oklahoma"),
+("chiropractor", "Memphis, Tennessee"),
 ]
 
-
 def normalize_text(value: str) -> str:
-    return re.sub(
-        r"[^a-z0-9]+",
-        " ",
-        (value or "").lower(),
-    ).strip()
-
+return re.sub(
+r"[^a-z0-9]+",
+" ",
+(value or "").lower(),
+).strip()
 
 def make_business_key(name: str, location: str) -> str:
-    return normalize_text(f"{name} {location}")
-
+return normalize_text(f"{name} {location}")
 
 def load_history() -> dict:
-    if not HISTORY_FILE.exists():
-        return {
-            "search_cursor": 0,
-            "businesses": {},
-        }
+if not HISTORY_FILE.exists():
+return {
+"search_cursor": 0,
+"businesses": {},
+}
 
-    try:
-        data = json.loads(
-            HISTORY_FILE.read_text(
-                encoding="utf-8"
-            )
-        )
+try:
+    data = json.loads(
+        HISTORY_FILE.read_text(encoding="utf-8")
+    )
 
-        if not isinstance(data, dict):
-            raise ValueError(
-                "History must be a JSON object"
-            )
+    if not isinstance(data, dict):
+        raise ValueError("History must be a JSON object")
 
-        data.setdefault(
-            "search_cursor",
-            0
-        )
+    data.setdefault("search_cursor", 0)
+    data.setdefault("businesses", {})
 
-        data.setdefault(
-            "businesses",
-            {}
-        )
+    if not isinstance(data["businesses"], dict):
+        raise ValueError("Businesses history must be an object")
 
-        if not isinstance(
-            data["businesses"],
-            dict
-        ):
-            raise ValueError(
-                "Businesses history must be an object"
-            )
+    return data
 
-        return data
-
-    except (
-        json.JSONDecodeError,
-        OSError,
-        ValueError,
-    ) as exc:
-        raise RuntimeError(
-            "Cannot safely read history.json"
-        ) from exc
-
+except (json.JSONDecodeError, OSError, ValueError) as exc:
+    raise RuntimeError(
+        "Cannot safely read history.json"
+    ) from exc
 
 def save_history(history: dict) -> None:
-    HISTORY_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-    HISTORY_FILE.write_text(
-        json.dumps(
-            history,
-            indent=2
-        ),
-        encoding="utf-8",
-    )
+HISTORY_FILE.write_text(
+    json.dumps(history, indent=2),
+    encoding="utf-8",
+)
 
+def is_valid_http_url(value: str) -> bool:
+try:
+parsed = urlparse(value)
+return (
+parsed.scheme in ("http", "https")
+and bool(parsed.netloc)
+)
+except ValueError:
+return False
 
 def main() -> None:
-    history = load_history()
-    seen = history["businesses"]
+history = load_history()
+seen = history["businesses"]
 
-    cursor = int(
-        history.get(
-            "search_cursor",
-            0
-        )
+cursor = int(history.get("search_cursor", 0))
+
+selected_targets = []
+
+for offset in range(2):
+    index = (cursor + offset) % len(SEARCH_TARGETS)
+    selected_targets.append(SEARCH_TARGETS[index])
+
+raw_results = []
+
+print("Selected searches:")
+
+for category, location in selected_targets:
+    query = (
+        f"independent {category} in {location} "
+        "local business directory contact"
     )
 
-    selected_targets = []
+    print(f"Searching: {query}")
 
-    for offset in range(2):
-        index = (
-            cursor + offset
-        ) % len(SEARCH_TARGETS)
+    results = search_web(query, count=10)
 
-        selected_targets.append(
-            SEARCH_TARGETS[index]
-        )
+    for result in results:
+        result["search_query"] = query
 
-    history["search_cursor"] = (
-        cursor + len(selected_targets)
-    ) % len(SEARCH_TARGETS)
+    raw_results.extend(results)
 
-    raw_results = []
+history["search_cursor"] = (
+    cursor + len(selected_targets)
+) % len(SEARCH_TARGETS)
 
-    print("Selected searches:")
+print(f"Raw search results: {len(raw_results)}")
 
-    for category, location in selected_targets:
-        query = (
-            f"independent {category} "
-            f"in {location} "
-            f"local business directory "
-            f"contact official website"
-        )
+if not raw_results:
+    raise RuntimeError("Tavily returned no search results")
 
-        print(
-            f"Searching: {query}"
-        )
+ai_leads = extract_leads(raw_results, max_leads=8)
 
-        results = search_web(
-            query,
-            count=10
-        )
+print(f"AI extracted leads: {len(ai_leads)}")
 
-        for result in results:
-            result["search_query"] = query
+candidates = {}
 
-        raw_results.extend(results)
+for lead in ai_leads:
+    name = str(lead.get("business_name") or "").strip()
+    location = str(lead.get("location") or "").strip()
+    source_url = str(lead.get("source_url") or "").strip()
 
-    print(
-        f"Raw search results: "
-        f"{len(raw_results)}"
-    )
+    if not name or not location:
+        continue
 
-    if not raw_results:
-        raise RuntimeError(
-            "Tavily returned no search results"
-        )
+    # Source must be a usable web URL.
+    if not is_valid_http_url(source_url):
+        print(f"Rejected: missing/invalid source URL: {name}")
+        continue
 
-    ai_leads = extract_leads(
-        raw_results,
-        max_leads=8
-    )
+    key = make_business_key(name, location)
 
-    print(
-        f"AI extracted leads: "
-        f"{len(ai_leads)}"
-    )
+    if not key or key in seen or key in candidates:
+        continue
 
-    candidates = {}
+    website = lead.get("official_website")
+    if isinstance(website, str):
+        website = website.strip()
+    else:
+        website = ""
 
-    for lead in ai_leads:
-        name = str(
-            lead.get(
-                "business_name"
-            ) or ""
-        ).strip()
+    website_status = str(
+        lead.get("website_status") or ""
+    ).strip().lower()
 
-        location = str(
-            lead.get(
-                "location"
-            ) or ""
-        ).strip()
-
-        source_url = str(
-            lead.get(
-                "source_url"
-            ) or ""
-        ).strip()
-
-        if (
-            not name
-            or not location
-            or not source_url
-        ):
+    # If AI identified an official website, verify it.
+    if website:
+        if not is_valid_http_url(website):
+            print(f"Rejected: invalid website URL: {name}")
             continue
 
+        website_check = verify_website(website)
+        status = str(
+            website_check.get("status") or "unknown"
+        ).lower()
+
+        if status == "reachable":
+            print(f"Rejected: official website found: {name}")
+            continue
+
+        # A website that cannot be reached is not proof
+        # that the business has no website.
+        if status != "non_official_source":
+            print(f"Rejected: website status uncertain: {name}")
+            continue
+
+        # The URL was a directory/social page, not an official site.
+        website = ""
+
+    else:
+        # Only accept explicit "not found in sources" status.
+        # "uncertain" and unknown statuses are rejected.
+        if website_status != "not_found_in_sources":
+            print(f"Rejected: website status uncertain: {name}")
+            continue
+
+    phone = str(lead.get("phone") or "").strip()
+    email = str(lead.get("email") or "").strip()
+
+    # Email is optional, but at least one contact method
+    # must be available.
+    if not phone and not email:
+        print(f"Rejected: no phone or email: {name}")
+        continue
+
+    candidates[key] = {
+        "business_name": name,
+        "category": str(
+            lead.get("category") or "Unknown"
+        ).strip(),
+        "location": location,
+        "phone": phone,
+        "email": email,
+        "website": "",
+        "website_status": "not_found_in_sources",
+        "source_url": source_url,
+        "evidence": str(
+            lead.get("evidence") or ""
+        ).strip(),
+    }
+
+print(f"Eligible leads after filtering: {len(candidates)}")
+
+ranked = rank_leads(list(candidates.values()))
+top_five = ranked[:5]
+
+now = datetime.now(timezone.utc).isoformat()
+
+# Save only leads actually selected for notification.
+# This avoids marking unselected leads as already sent.
+for lead in top_five:
+    key = make_business_key(
+        lead["business_name"],
+        lead["location"],
+    )
+
+    seen[key] = {
+        "business_name": lead["business_name"],
+        "location": lead["location"],
+        "first_seen_utc": now,
+        "source_url": lead["source_url"],
+    }
+
+report = create_report(top_five)
+
+REPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
+REPORT_FILE.write_text(report, encoding="utf-8")
+
+print("")
+print(report)
+
+# Save the history even when there are no eligible leads.
+save_history(history)
+
+if not top_five:
+    print("No eligible new leads found. Nothing sent to Discord.")
+    return
+
+try:
+    send_leads_to_discord(top_five)
+    print("Discord notification sent successfully.")
+except Exception as exc:
+    # Allow a later run to retry if Discord delivery fails.
+    for lead in top_five:
         key = make_business_key(
-            name,
-            location
+            lead["business_name"],
+            lead["location"],
         )
+        seen.pop(key, None)
 
-        if (
-            not key
-            or key in seen
-            or key in candidates
-        ):
-            continue
+    save_history(history)
+    print(f"Discord notification failed: {exc}")
 
-        website = lead.get(
-            "official_website"
-        )
-
-        if isinstance(
-            website,
-            str
-        ):
-            website = website.strip()
-        else:
-            website = ""
-
-        if website:
-            website_check = verify_website(
-                website
-            )
-
-            website_status = website_check.get(
-                "status",
-                "unknown"
-            )
-
-            if website_status == "reachable":
-                website = (
-                    website_check.get(
-                        "final_url"
-                    )
-                    or website
-                )
-
-            elif website_status == "non_official_source":
-                website = ""
-                website_status = (
-                    "not_found_in_sources"
-                )
-
-        else:
-            website_status = (
-                "not_found_in_sources"
-            )
-
-        candidates[key] = {
-            "business_name": name,
-            "category": str(
-                lead.get(
-                    "category"
-                ) or "Unknown"
-            ).strip(),
-            "location": location,
-            "phone": str(
-                lead.get(
-                    "phone"
-                ) or ""
-            ).strip(),
-            "email": str(
-                lead.get(
-                    "email"
-                ) or ""
-            ).strip(),
-            "website": website,
-            "website_status": website_status,
-            "source_url": source_url,
-            "evidence": str(
-                lead.get(
-                    "evidence"
-                ) or ""
-            ).strip(),
-        }
-
-    ranked = rank_leads(
-        list(
-            candidates.values()
-        )
-    )
-
-    top_five = ranked[:5]
-
-    now = datetime.now(
-        timezone.utc
-    ).isoformat()
-
-    for key, lead in candidates.items():
-        seen[key] = {
-            "business_name": lead[
-                "business_name"
-            ],
-            "location": lead[
-                "location"
-            ],
-            "first_seen_utc": now,
-            "source_url": lead[
-                "source_url"
-            ],
-        }
-
-    report = create_report(
-        top_five
-    )
-
-    REPORT_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    REPORT_FILE.write_text(
-        report,
-        encoding="utf-8",
-    )
-
-    save_history(
-        history
-    )
-
-    print("")
-    print(report)
-
-    try:
-        send_leads_to_discord(
-            top_five
-        )
-        print(
-            "Discord notification "
-            "sent successfully."
-        )
-
-    except Exception as exc:
-        print(
-            f"Discord notification "
-            f"failed: {exc}"
-        )
-
-
-if __name__ == "__main__":
-    main()
+if name == "main":
+main()
