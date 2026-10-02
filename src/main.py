@@ -39,11 +39,11 @@ SEARCH_TARGETS = [
 ]
 
 def normalize_text(value: str) -> str:
-    return re.sub(
-        r"[^a-z0-9]+",
-        " ",
-        (value or "").lower(),
-    ).strip()
+return re.sub(
+r"[^a-z0-9]+",
+" ",
+(value or "").lower(),
+).strip()
 
 def make_business_key(name: str, location: str) -> str:
 return normalize_text(f"{name} {location}")
@@ -77,7 +77,10 @@ except (json.JSONDecodeError, OSError, ValueError) as exc:
     ) from exc
 
 def save_history(history: dict) -> None:
-HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+HISTORY_FILE.parent.mkdir(
+parents=True,
+exist_ok=True,
+)
 
 HISTORY_FILE.write_text(
     json.dumps(history, indent=2),
@@ -99,7 +102,6 @@ history = load_history()
 seen = history["businesses"]
 
 cursor = int(history.get("search_cursor", 0))
-
 selected_targets = []
 
 for offset in range(2):
@@ -125,16 +127,15 @@ for category, location in selected_targets:
 
     raw_results.extend(results)
 
-history["search_cursor"] = (
-    cursor + len(selected_targets)
-) % len(SEARCH_TARGETS)
-
 print(f"Raw search results: {len(raw_results)}")
 
 if not raw_results:
     raise RuntimeError("Tavily returned no search results")
 
-ai_leads = extract_leads(raw_results, max_leads=8)
+ai_leads = extract_leads(
+    raw_results,
+    max_leads=8,
+)
 
 print(f"AI extracted leads: {len(ai_leads)}")
 
@@ -148,9 +149,8 @@ for lead in ai_leads:
     if not name or not location:
         continue
 
-    # Source must be a usable web URL.
     if not is_valid_http_url(source_url):
-        print(f"Rejected: missing/invalid source URL: {name}")
+        print(f"Rejected: invalid source URL: {name}")
         continue
 
     key = make_business_key(name, location)
@@ -158,9 +158,9 @@ for lead in ai_leads:
     if not key or key in seen or key in candidates:
         continue
 
-    website = lead.get("official_website")
-    if isinstance(website, str):
-        website = website.strip()
+    website_value = lead.get("official_website")
+    if isinstance(website_value, str):
+        website = website_value.strip()
     else:
         website = ""
 
@@ -168,7 +168,6 @@ for lead in ai_leads:
         lead.get("website_status") or ""
     ).strip().lower()
 
-    # If AI identified an official website, verify it.
     if website:
         if not is_valid_http_url(website):
             print(f"Rejected: invalid website URL: {name}")
@@ -183,27 +182,19 @@ for lead in ai_leads:
             print(f"Rejected: official website found: {name}")
             continue
 
-        # A website that cannot be reached is not proof
-        # that the business has no website.
         if status != "non_official_source":
             print(f"Rejected: website status uncertain: {name}")
             continue
 
-        # The URL was a directory/social page, not an official site.
         website = ""
 
-    else:
-        # Only accept explicit "not found in sources" status.
-        # "uncertain" and unknown statuses are rejected.
-        if website_status != "not_found_in_sources":
-            print(f"Rejected: website status uncertain: {name}")
-            continue
+    elif website_status != "not_found_in_sources":
+        print(f"Rejected: website status uncertain: {name}")
+        continue
 
     phone = str(lead.get("phone") or "").strip()
     email = str(lead.get("email") or "").strip()
 
-    # Email is optional, but at least one contact method
-    # must be available.
     if not phone and not email:
         print(f"Rejected: no phone or email: {name}")
         continue
@@ -229,10 +220,30 @@ print(f"Eligible leads after filtering: {len(candidates)}")
 ranked = rank_leads(list(candidates.values()))
 top_five = ranked[:5]
 
+report = create_report(top_five)
+
+REPORT_FILE.parent.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+REPORT_FILE.write_text(
+    report,
+    encoding="utf-8",
+)
+
+print("")
+print(report)
+
+if not top_five:
+    print("No eligible new leads found. Nothing sent to Discord.")
+    history["search_cursor"] = (
+        cursor + len(selected_targets)
+    ) % len(SEARCH_TARGETS)
+    save_history(history)
+    return
+
 now = datetime.now(timezone.utc).isoformat()
 
-# Save only leads actually selected for notification.
-# This avoids marking unselected leads as already sent.
 for lead in top_five:
     key = make_business_key(
         lead["business_name"],
@@ -246,26 +257,17 @@ for lead in top_five:
         "source_url": lead["source_url"],
     }
 
-report = create_report(top_five)
+history["search_cursor"] = (
+    cursor + len(selected_targets)
+) % len(SEARCH_TARGETS)
 
-REPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
-REPORT_FILE.write_text(report, encoding="utf-8")
-
-print("")
-print(report)
-
-# Save the history even when there are no eligible leads.
 save_history(history)
-
-if not top_five:
-    print("No eligible new leads found. Nothing sent to Discord.")
-    return
 
 try:
     send_leads_to_discord(top_five)
     print("Discord notification sent successfully.")
+
 except Exception as exc:
-    # Allow a later run to retry if Discord delivery fails.
     for lead in top_five:
         key = make_business_key(
             lead["business_name"],
