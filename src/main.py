@@ -39,11 +39,11 @@ SEARCH_TARGETS = [
 ]
 
 def normalize_text(value: str) -> str:
-return re.sub(
-r"[^a-z0-9]+",
-" ",
-(value or "").lower(),
-).strip()
+    return re.sub(
+        r"[^a-z0-9]+",
+        " ",
+        (value or "").lower(),
+    ).strip()
 
 def make_business_key(name: str, location: str) -> str:
 return normalize_text(f"{name} {location}")
